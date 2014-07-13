@@ -1,6 +1,6 @@
 {
     "name": "purrl",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "Pretty Useful Resource Request Lackey",
     "author": "John Johnson II",
     "license": {
@@ -16,7 +16,7 @@
         "type" : "git",
         "url" : "https://github.com/potencia/purrl.git"
     },
-    "files" : ["README.md", "LICENSE", "bin", "index.js"],
+    "files" : ["README.md", "LICENSE", "bin/purrl.js", "index.js"],
     "main": "index.js",
     "bin" : {
         "purrl" : "./bin/purrl.js"

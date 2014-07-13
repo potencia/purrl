@@ -1,32 +1,47 @@
 #!/usr/bin/env node
 
-var repl = require('repl'), session;
+global[' requestCallback'] = function me () {
+    callback = me.onRequest();
+    me.callbackRequested = true;
+    return function (error, result) {
+        me.callbackRequested = false;
+        callback(error, result);
+    };
+};
+global[' requestCallback'].callbackRequested = false;
+
+var repl = require('repl'),
+vm = require('vm'),
+PURRL = require('../index'),
+session;
 
 function purrlEval (code, context, file, callback) {
-    var callbackRequested = false;
-    context[' requestCallback'] = function () {
-        callbackRequested = true;
+    var err, result;
+
+    function onRequest() {
         return callback;
-    };
-    purrlEval.eval(code, context, file, function (error, result) {
-        if (!callbackRequested) {
-            callback(error, result);
+    }
+    global[' requestCallback'].onRequest = onRequest;
+
+    try {
+        result = vm.runInContext(code, context, file);
+    } catch (e) {
+        err = e;
+    }
+    if (err && process.domain) {
+        process.domain.emit('error', err);
+        process.domain.exit();
+    }
+    else {
+        if (!global[' requestCallback'].callbackRequested) {
+            callback(err, result);
         }
-    });
+    }
 }
 
 session = repl.start({
     prompt : 'purrl> ',
-    ignoreUndefined : true
+    ignoreUndefined : true,
+    eval : purrlEval
 });
-
-purrlEval.eval = session.eval;
-session.eval = purrlEval;
-
-//session.commands['.prompt'] = {
-//    help : 'Change the prompt',
-//    action : function (prompt) {
-//        session.prompt = prompt;
-//        this.displayPrompt();
-//    }
-//};
+session.context.purrl = new PURRL().config(PURRL.defaultReplConfig);

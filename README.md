@@ -48,10 +48,10 @@ See the [Trello API documentation](https://trello.com/docs/) for details about t
         .config('port', 443)              // default is 80 for 'http' and 443 for 'https'
         .config('query', 'key', /* YOUR APPLICATION KEY */)
         .config('query', 'token', /* YOUR USER OAUTH TOKEN */)
-        .config('hook', 'onBody', function (body) { result = body; });
+        .config('hook', 'onBody', function (context) { result = JSON.parse(context.body); });
 
     // Issue a GET request
-    purrl('1', 'members', 'me').get();
+    purrl(1, 'members', 'me').get();
 
     // ...
     // Once the HTTP request's end event is emitted
@@ -78,8 +78,8 @@ Here is the same example but using the custom PURRL [REPL](http://nodejs.org/api
     ..... token : /* YOUR USER OAUTH TOKEN */
     ..... }
     ... });
-    purrl> purrl('1', 'members', 'me').get();
-    purrl> var results = _;
+    purrl> purrl(1, 'members', 'me').get();
+    purrl> var results = JSON.parse(_);
     purrl> console.log(results.boards); // prints your Trello board data
 
 A few items to note: The purrl instance is automatically instantiated for you. The onBody hook is not needed as the default behavior of the REPL PURRL client
