@@ -19,8 +19,11 @@ function confFn (options) {
             fn[key] = options[key];
         });
     }
-    fn.read = (fn.read === undefined ? true : fn.read);
-    fn.passThrough = (fn.passThrough === undefined ? false : fn.passThrough);
+
+    function defaultsTo (test, defaultValue) { return test === undefined ? defaultValue : test; }
+
+    fn.read = defaultsTo(fn.read, true);
+
     return fn;
 }
 
@@ -42,7 +45,10 @@ var I = ' internal', configurations = {
     }),
     host : confFn(function (name) {
         if (name === undefined) {
-            return this.host;
+            return {
+                passThrough : true,
+                value : this.host
+            };
         }
         if (Object.prototype.toString.call(name) !== '[object String]') {
             throw new Error('The value [ ' + name + ' ] is invalid for host. It must be a string.');
@@ -51,34 +57,86 @@ var I = ' internal', configurations = {
     }),
     port : confFn(function (num) {
         if (num === undefined) {
-            return this.port;
+            return {
+                passThrough : true,
+                value : this.port
+            };
         }
         var setting = filterPort(num);
-        if (isNaN(setting)) {
+        if (isNaN(setting) || setting < 1 || setting > 65535) {
             throw new Error('The value [ ' + num + ' ] is not a valid port number.');
         }
         this.port = setting;
     }),
-    query : confFn(function (key, value) {
+    param : confFn(function (key, value) {
         if (key === undefined) {
-            return this.query;
+            return this.param;
         }
         switch (Object.prototype.toString.call(key)) {
             case '[object String]': {
                 if (value === undefined) {
-                    return this.query[key];
+                    return {
+                        passThrough : true,
+                        value : this.param[key]
+                    };
                 }
-                this.query[key] = value;
+                this.param[key] = value;
                 break;
             }
             case '[object Object]': {
-                this.query = key;
+                Object.keys(key).forEach(function (paramKey) {
+                    this.param[paramKey] = key[paramKey];
+                }, this);
                 break;
             }
             default: {
-                throw new Error('The query setting must be [ key ] and [ value ] or a [ query ] object.');
+                throw new Error('The param setting must be [ key ] and [ value ] or a [ param ] object.');
             }
         }
+    }),
+    removeParam : confFn({
+        read : false
+    },
+    function (key) {
+        if (key === undefined) {
+            throw new Error('The removeParam setting must be passed a param key [ string ]');
+        }
+        delete this.param[key];
+    }),
+    header : confFn(function (key, value) {
+        if (key === undefined) {
+            return this.header;
+        }
+        switch (Object.prototype.toString.call(key)) {
+            case '[object String]': {
+                if (value === undefined) {
+                    return {
+                        passThrough : true,
+                        value : this.header[key]
+                    };
+                }
+                this.header[key] = value;
+                break;
+            }
+            case '[object Object]': {
+                Object.keys(key).forEach(function (headerKey) {
+                    this.header[headerKey] = key[headerKey];
+                }, this);
+                break;
+            }
+            default : {
+                throw new Error('The header setting must be [ key ] and [ value ] or a [ header ] object.');
+            }
+        }
+    }),
+    removeHeader : confFn({
+        read : false
+    },
+    function (key) {
+        if (key === undefined) {
+            throw new Error('The removeHeader setting must be passed a header key [ string ]');
+        }
+        delete this.header[key];
     }),
     hook : confFn(function hook (key, value) {
         var self = this, result;
@@ -140,8 +198,7 @@ var I = ' internal', configurations = {
         }
     }),
     removeHook : confFn({
-        read : false,
-        passThrough : true
+        read : false
     },
     function (name, idx) {
         var result;
@@ -156,7 +213,10 @@ var I = ' internal', configurations = {
         if (result === undefined) {
             throw new Error('The removeHook index does not match an item in the list.');
         }
-        return result;
+        return {
+            passThrough : true,
+            value : result
+        };
     })
 };
 
@@ -180,6 +240,9 @@ function config (purrl, option) {
         .filter(function (option) { return configurations[option].read; })
         .forEach(function (option) {
             current = configurations[option].call(purrl[I]);
+            if (current.passThrough) {
+                current = current.value;
+            }
             if (current !== undefined) {
                 current = JSON.stringify(current);
                 if (current !== '{}') {
@@ -197,14 +260,11 @@ function config (purrl, option) {
                     args.push(arguments[current]);
                 }
                 result = configurations[option].apply(purrl[I], args);
-                if (configurations[option].passThrough) {
-                    return result;
-                }
-                if (result !== undefined || args.length === 0) {
-                    if (result !== undefined) {
-                        return JSON.parse(JSON.stringify(result));
+                if (result !== undefined) {
+                    if (result.passThrough) {
+                        return result.value;
                     }
-                    return result;
+                    return JSON.parse(JSON.stringify(result));
                 }
                 return purrl;
             }
@@ -223,40 +283,115 @@ function config (purrl, option) {
     }
 }
 
-function sendRequest (purrl, verb) {
-    var request, options = {method : verb}, pathUrl = {};
+function header (purrl, key, value) {
+    if (Object.prototype.toString.call(key) !== '[object String]' || value === undefined) {
+        throw new Error('purrl.header() requires a [ key ] string and a [ value ]');
+    }
+    purrl[I].requestHeader[key] = value;
+}
+
+function noHeader (purrl, key) {
+    if (Object.prototype.toString.call(key) !== '[object String]') {
+        throw new Error('purrl.noHeader() requires a [ key ] string');
+    }
+    purrl[I].requestHeader[key] = undefined;
+}
+
+function param (purrl, key, value) {
+    if (Object.prototype.toString.call(key) !== '[object String]' || value === undefined) {
+        throw new Error('purrl.param() requires a [ key ] string and a [ value ]');
+    }
+    purrl[I].requestParam[key] = value;
+}
+
+function noParam (purrl, key) {
+    if (Object.prototype.toString.call(key) !== '[object String]') {
+        throw new Error('purrl.noParam() requires a [ key ] string');
+    }
+    purrl[I].requestParam[key] = undefined;
+}
+
+function buildBasicRequestOptions (purrl, verb) {
+    var options = {method : verb};
     if (purrl[I].host) {
         options.hostname = purrl[I].host;
     }
-
     if (purrl[I].port) {
         options.port = purrl[I].port;
     }
+    return options;
+}
 
-    purrl[I].path.unshift('');
-    pathUrl.pathname = purrl[I].path.map(function (segment) { return encodeURIComponent(segment); }).join('/');
+function buildRequestPath (purrl) {
+    var pathUrl = {};
+
+    pathUrl.pathname = '/' + purrl[I].path.map(function (segment) { return encodeURIComponent(segment); }).join('/');
     purrl[I].path = [];
 
     pathUrl.query = {};
-    Object.keys(purrl[I].query).forEach(function (key) {
-        pathUrl.query[key] = purrl[I].query[key];
+    Object.keys(purrl[I].param).forEach(function (key) {
+        pathUrl.query[key] = purrl[I].param[key];
+    });
+    Object.keys(purrl[I].requestParam).forEach(function (key) {
+        var value = purrl[I].requestParam[key];
+        if (value === undefined) {
+            delete pathUrl.query[key];
+        } else {
+            pathUrl.query[key] = value;
+        }
     });
 
-    options.path = url.format(pathUrl);
+    purrl[I].requestParam = {};
+
+    return url.format(pathUrl);
+}
+
+function buildRequestHeaders (purrl, withBody) {
+    var header = {};
+    if (withBody) {
+        header['transfer-encoding'] = 'chunked';
+    }
+    Object.keys(purrl[I].header).forEach(function (key) {
+        header[key] = purrl[I].header[key].toString();
+    });
+    Object.keys(purrl[I].requestHeader).forEach(function (key) {
+        var value = purrl[I].requestHeader[key];
+        if (value === undefined) {
+            delete header[key];
+        } else {
+            header[key] = purrl[I].requestHeader[key].toString();
+        }
+    });
+    purrl[I].requestHeader = {};
+    return header;
+}
+
+function sendRequest (purrl, verb, body) {
+    var request, options, beforeRequestBodyContext;
+
+    purrl[I].context.request = {};
+
+    options = buildBasicRequestOptions(purrl, verb);
+    options.path = buildRequestPath(purrl);
+    options.headers = buildRequestHeaders(purrl, body !== undefined);
 
     if (options.hostname === undefined) {
         throw new Error('Cannot send the request. The host is not configured.');
     }
 
     PURRL.hook(purrl, 'beforeRequest');
-
     request = purrl[I].protocol.client.request(options);
+    PURRL.hook(purrl, 'onRequest', {request : request});
 
     request.on('response', function (response) {
-        var allData = [];
-        response.setEncoding('utf8');
+        var allData;
+        PURRL.hook(purrl, 'onResponse', {response : response});
+        allData = [];
         response.on('data', function (data) {
-            allData.push(data);
+            var onDataHook = PURRL.hook(purrl, 'onData', {data : data});
+            if (!onDataHook.cancelled) {
+                allData.push(onDataHook.data);
+            }
         });
         response.on('end', function () {
             PURRL.hook(purrl, 'onBody', {body : allData.join('')});
@@ -267,10 +402,17 @@ function sendRequest (purrl, verb) {
         PURRL.hook(purrl, 'onRequestError', {error : error});
     });
 
+    if (body !== undefined) {
+        beforeRequestBodyContext = PURRL.hook(purrl, 'beforeRequestBody', {body : body});
+        if (!beforeRequestBodyContext.cancelled) {
+            request.write(beforeRequestBodyContext.body.toString());
+        }
+    }
+
     request.end();
 }
 
-PURRL = function () {
+function createPurrl () {
     function purrl () {
         var ctr, len, seg;
         for (ctr = 0, len = arguments.length; ctr < len; ctr++) {
@@ -285,55 +427,130 @@ PURRL = function () {
         configurable : false,
         writable : false,
         value : {
-            query : {},
+            path : [],
+            header : {},
+            requestHeader : {},
+            param : {},
+            requestParam : {},
+            context : {
+                session  : {},
+                request : {}
+            },
             hook : {
                 beforeRequest : [],
+                onRequest : [],
                 onRequestError : [],
+                beforeRequestBody : [],
+                onResponse : [],
                 onData : [],
                 onBody : []
-            },
-            hookGlobal : {},
-            path : []
+            }
         }
     });
 
+    return purrl;
+}
+
+function attachMethods (purrl) {
     purrl.config = function () {
         return internalApply(config, purrl, arguments);
+    };
+
+    purrl.header = function () {
+        internalApply(header, purrl, arguments);
+        return purrl;
+    };
+
+    purrl.noHeader = function () {
+        internalApply(noHeader, purrl, arguments);
+        return purrl;
+    };
+
+    purrl.param = function () {
+        internalApply(param, purrl, arguments);
+        return purrl;
+    };
+
+    purrl.noParam = function () {
+        internalApply(noParam, purrl, arguments);
+        return purrl;
     };
 
     purrl.get = function () {
         internalApply(sendRequest, purrl, 'GET', arguments);
     };
 
-    return purrl
+    purrl.post = function () {
+        internalApply(sendRequest, purrl, 'POST', arguments);
+    };
+
+    purrl.put = function () {
+        internalApply(sendRequest, purrl, 'PUT', arguments);
+    };
+
+    purrl.patch = function () {
+        internalApply(sendRequest, purrl, 'PATCH', arguments);
+    };
+
+    purrl.delete = function () {
+        internalApply(sendRequest, purrl, 'DELETE', arguments);
+    };
+}
+
+function configure (purrl, config) {
+    purrl
     .config({
         protocol : 'http',
         hook : {
+            onRequest : function (context) {
+                context.getRequestContext().request = context.request;
+            },
             onRequestError : function (context) {
                 console.log(context.error);
+            },
+            beforeRequestBody : function (context) {
+                var type = Object.prototype.toString.call(context.body);
+                if (type === '[object Object]' || type === '[object Array]') {
+                    context.body = JSON.stringify(context.body);
+                    context.getRequestContext().request.setHeader('Content-Type', 'application/json');
+                    context.getRequestContext().request.setHeader('Content-Length', context.body.length);
+                }
+            },
+            onResponse : function (context) {
+                context.response.setEncoding('utf8');
             },
             onBody : function (context) {
                 console.log(context.body);
             }
         }
     });
+    if (config !== undefined) {
+        purrl.config(config);
+    }
+}
+
+PURRL = function (config) {
+    var purrl = createPurrl();
+    attachMethods(purrl);
+    configure(purrl, config);
+    return purrl;
 };
 
 PURRL.defaultReplConfig = {
     hook : {
-        beforeRequest : function () {
-            this.replCallback = global[' requestCallback']();
+        beforeRequest : function (context) {
+            context.getRequestContext().replCallback = global[' requestCallback']();
         },
         onRequestError : function (context) {
-            this.replCallback(context.error);
+            context.getRequestContext().replCallback(context.error);
         },
         onBody : function (context) {
-            this.replCallback(null, context.body);
+            context.getRequestContext().replCallback(null, context.body);
         }
     }
 };
 
-function HookContext (context) {
+function HookContext (purrl, context) {
     Object.defineProperties(this, {
         cancelled : {
             enumerable : false,
@@ -346,6 +563,12 @@ function HookContext (context) {
             configurable : false,
             writable : true,
             value : 0
+        },
+        context : {
+            enumerable : false,
+            configurable : false,
+            writable : true,
+            value : purrl[I].context
         }
     });
 
@@ -360,12 +583,20 @@ HookContext.prototype.cancel = function () {
     this.cancelled = true;
 };
 
+HookContext.prototype.getSessionContext = function () {
+    return this.context.session;
+};
+
+HookContext.prototype.getRequestContext = function () {
+    return this.context.request;
+};
+
 PURRL.hook = function (purrl, name, context) {
     var hookContext;
     checkHookName(purrl[I].hook, name);
-    hookContext = new HookContext(context);
+    hookContext = new HookContext(purrl, context);
     purrl[I].hook[name].every(function (hook) {
-        hook.call(purrl[I].hookGlobal, hookContext);
+        hook.call(null, hookContext);
         hookContext.executed++;
         return !hookContext.cancelled;
     });

@@ -44,4 +44,7 @@ session = repl.start({
     ignoreUndefined : true,
     eval : purrlEval
 });
-session.context.purrl = new PURRL().config(PURRL.defaultReplConfig);
+
+session.context.PURRL = function (config) { return new PURRL().config(PURRL.defaultReplConfig).config(config); };
+session.context.purrl = new PURRL(PURRL.defaultReplConfig);
+

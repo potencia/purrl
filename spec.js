@@ -24,6 +24,9 @@ describe('PURRL', function () {
     describe('.config()', function () {
         beforeEach(function () {
             purrl.config('hook', 'onRequestError', []);
+            purrl.config('hook', 'onRequest', []);
+            purrl.config('hook', 'beforeRequestBody', []);
+            purrl.config('hook', 'onResponse', []);
             purrl.config('hook', 'onBody', []);
         });
 
@@ -35,19 +38,19 @@ describe('PURRL', function () {
                 purrl
                 .config('protocol', 'https')
                 .config('host', 'example.com')
-                .config('query', {
+                .config('param', {
                     key : 'KEY',
                     token : 'TOKEN'
                 });
                 expect(purrl.config()).to.deep.equal({
                     protocol : 'https',
                     host : 'example.com',
-                    query : {
+                    param : {
                         key : 'KEY',
                         token : 'TOKEN'
                     }
                 });
-                expect(purrl.config().query).to.not.equal(purrl[' internal'].query);
+                expect(purrl.config().param).to.not.equal(purrl[' internal'].param);
             });
         });
 
@@ -192,7 +195,29 @@ describe('PURRL', function () {
             });
 
             describe('when passed an invalid setting', function () {
-                it('should throw an error', function () {
+                it('should throw an error for too small a port', function () {
+                    try {
+                        purrl.config('port', 0);
+                        console.dir(purrl.config('port'));
+                        expect(true, 'An error should have been thrown').to.be.false;
+                    } catch (error) {
+                        expect(error).to.be.an.instanceOf(Error);
+                        expect(error.message).to.equal('The value [ 0 ] is not a valid port number.');
+                    }
+                });
+
+                it('should throw an error for too large a port', function () {
+                    try {
+                        purrl.config('port', 65536);
+                        console.dir(purrl.config('port'));
+                        expect(true, 'An error should have been thrown').to.be.false;
+                    } catch (error) {
+                        expect(error).to.be.an.instanceOf(Error);
+                        expect(error.message).to.equal('The value [ 65536 ] is not a valid port number.');
+                    }
+                });
+
+                it('should throw an error for non-integer', function () {
                     try {
                         purrl.config('port', '56.4');
                         console.dir(purrl.config('port'));
@@ -205,6 +230,14 @@ describe('PURRL', function () {
             });
 
             describe('when passed a valid setting', function () {
+                it('should accept [ 1 ]', function () {
+                    expect(purrl.config('port', 1)).to.equal(purrl);
+                });
+
+                it('should accept [ 65535 ]', function () {
+                    expect(purrl.config('port', 65535)).to.equal(purrl);
+                });
+
                 it('should return the purrl object', function () {
                     expect(purrl.config('port', 42)).to.equal(purrl);
                 });
@@ -219,42 +252,43 @@ describe('PURRL', function () {
             });
         });
 
-        describe('option [ query ]', function () {
+        describe('option [ param ]', function () {
             describe('when passed no setting', function () {
                 it('should return a copy of the currently set permanent query parameters', function () {
-                    expect(purrl.config('query')).to.deep.equal({});
-                    expect(purrl.config('query')).to.not.equal(purrl[' internal'].query);
+                    expect(purrl.config('param')).to.deep.equal({});
+                    expect(purrl.config('param')).to.not.equal(purrl[' internal'].param);
                 });
             });
 
-            describe('when passed neither a key name or a query object', function () {
+            describe('when passed neither a key name or a param object', function () {
                 it('should throw an error', function () {
                     try {
-                        purrl.config('query', []);
+                        purrl.config('param', []);
                         expect(true, 'An error should have been thrown').to.be.false;
                     } catch (error) {
                         expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The query setting must be [ key ] and [ value ] or a [ query ] object.');
+                        expect(error.message).to.equal('The param setting must be [ key ] and [ value ] or a [ param ] object.');
                     }
                 });
             });
 
             describe('when passed a key name without a value', function () {
                 it('should return the value of the key', function () {
-                    expect(purrl.config('query', 'key', 'KEY').config('query', 'key')).to.equal('KEY');
+                    expect(purrl.config('param', 'key')).to.be.undefined;
+                    expect(purrl.config('param', 'key', 'KEY').config('param', 'key')).to.equal('KEY');
                 });
             });
 
             describe('when passed a valid key / value pair', function () {
                 it('should return the purrl object', function () {
-                    expect(purrl.config('query', 'key', 'KEY')).to.deep.equal(purrl);
+                    expect(purrl.config('param', 'key', 'KEY')).to.deep.equal(purrl);
                 });
 
                 it('should add the key / value pair to the the configuration', function () {
-                    expect(purrl.config('query', 'key', 'KEY').config('query')).to.deep.equal({
+                    expect(purrl.config('param', 'key', 'KEY').config('param')).to.deep.equal({
                         key : 'KEY'
                     });
-                    expect(purrl.config('query', 'token', 'TOKEN').config('query')).to.deep.equal({
+                    expect(purrl.config('param', 'token', 'TOKEN').config('param')).to.deep.equal({
                         key : 'KEY',
                         token : 'TOKEN'
                     });
@@ -263,21 +297,157 @@ describe('PURRL', function () {
 
             describe('when passed a valid object setting', function () {
                 it('should return the purrl object', function () {
-                    expect(purrl.config('query', {
+                    expect(purrl.config('param', {
                         key : 'KEY',
                         token : 'TOKEN'
                     })).to.equal(purrl);
                 });
 
-                it('should perform a complete replace using the passed values', function () {
-                    purrl.config('query', 'other', 'OTHER');
-                    expect(purrl.config('query', {
+                it('should add the key / value pairs to the param configuration', function () {
+                    purrl.config('param', 'other', 'OTHER');
+                    expect(purrl.config('param', {
                         key : 'KEY',
                         token : 'TOKEN'
-                    }).config('query')).to.deep.equal({
+                    }).config('param')).to.deep.equal({
+                        key : 'KEY',
+                        token : 'TOKEN',
+                        other : 'OTHER'
+                    });
+                });
+            });
+        });
+
+        describe('option [ removeParam ]', function () {
+            describe('when passed no param key', function () {
+                it('should throw an error', function () {
+                    try {
+                        purrl.config('removeParam');
+                        expect(true, 'An error should have been thrown').to.be.false;
+                    } catch (error) {
+                        expect(error).to.be.an.instanceOf(Error);
+                        expect(error.message).to.equal('The removeParam setting must be passed a param key [ string ]');
+                    }
+                });
+            });
+
+            describe('when passed a param key', function () {
+                it('should return the purrl object', function () {
+                    expect(purrl.config('removeParam', 'token')).to.equal(purrl);
+                });
+
+                it('should remove query parameter from the object of persistent query parameters', function () {
+                    purrl.config('param', {
                         key : 'KEY',
                         token : 'TOKEN'
                     });
+                    purrl.config('removeParam', 'token');
+                    expect(purrl.config('param')).to.deep.equal({key : 'KEY'});
+                    purrl.config('removeParam', 'token');
+                    expect(purrl.config('param')).to.deep.equal({key : 'KEY'});
+                    purrl.config('removeParam', 'key');
+                    expect(purrl.config('param')).to.deep.equal({});
+                    purrl.config('removeParam', 'key');
+                    expect(purrl.config('param')).to.deep.equal({});
+                });
+            });
+        });
+
+        describe('option [ header ]', function () {
+            describe('when passed no setting', function () {
+                it('should return a copy of the currently set permanent query parameters', function () {
+                    expect(purrl.config('header')).to.deep.equal({});
+                    expect(purrl.config('header')).to.not.equal(purrl[' internal'].header);
+                });
+            });
+
+            describe('when passed neither a key name or a header object', function () {
+                it('should throw an error', function () {
+                    try {
+                        purrl.config('header', []);
+                        expect(true, 'An error should have been thrown').to.be.false;
+                    } catch (error) {
+                        expect(error).to.be.an.instanceOf(Error);
+                        expect(error.message).to.equal('The header setting must be [ key ] and [ value ] or a [ header ] object.');
+                    }
+                });
+            });
+
+            describe('when passed a key name without a value', function () {
+                it('should return the value of the key', function () {
+                    expect(purrl.config('header', 'accept')).to.be.undefined;
+                    expect(purrl.config('header', 'accept', 'application/json').config('header', 'accept')).to.equal('application/json');
+                });
+            });
+
+            describe('when passed a valid key / value pair', function () {
+                it('should return the purrl object', function () {
+                    expect(purrl.config('header', 'accept', 'application/json')).to.deep.equal(purrl);
+                });
+
+                it('should add the key / value pair to the the configuration', function () {
+                    expect(purrl.config('header', 'accept', 'application/json').config('header')).to.deep.equal({
+                        accept : 'application/json'
+                    });
+                    expect(purrl.config('header', 'content-type', 'application/json').config('header')).to.deep.equal({
+                        accept : 'application/json',
+                        'content-type' : 'application/json'
+                    });
+                });
+            });
+
+            describe('when passed a valid object setting', function () {
+                it('should return the purrl object', function () {
+                    expect(purrl.config('header', {
+                        accept : 'application/json',
+                        'content-type' : 'application/json'
+                    })).to.equal(purrl);
+                });
+
+                it('should add the key / value pairs to the header configuration', function () {
+                    purrl.config('header', 'content-length', 1024);
+                    expect(purrl.config('header', {
+                        accept : 'application/json',
+                        'content-type' : 'application/json'
+                    }).config('header')).to.deep.equal({
+                        accept : 'application/json',
+                        'content-type' : 'application/json',
+                        'content-length' : 1024
+                    });
+                });
+            });
+        });
+
+        describe('option [ removeHeader ]', function () {
+            describe('when passed no header key', function () {
+                it('should throw an error', function () {
+                    try {
+                        purrl.config('removeHeader');
+                        expect(true, 'An error should have been thrown').to.be.false;
+                    } catch (error) {
+                        expect(error).to.be.an.instanceOf(Error);
+                        expect(error.message).to.equal('The removeHeader setting must be passed a header key [ string ]');
+                    }
+                });
+            });
+
+            describe('when passed a header key', function () {
+                it('should return the purrl object', function () {
+                    expect(purrl.config('removeHeader', 'accept')).to.equal(purrl);
+                });
+
+                it('should remove header from the object of persistent headers', function () {
+                    purrl.config('header', {
+                        accepts : 'application/json',
+                        'content-type' : 'application/json'
+                    });
+                    purrl.config('removeHeader', 'accepts');
+                    expect(purrl.config('header')).to.deep.equal({'content-type' : 'application/json'});
+                    purrl.config('removeHeader', 'accepts');
+                    expect(purrl.config('header')).to.deep.equal({'content-type' : 'application/json'});
+                    purrl.config('removeHeader', 'content-type');
+                    expect(purrl.config('header')).to.deep.equal({});
+                    purrl.config('removeHeader', 'content-type');
+                    expect(purrl.config('header')).to.deep.equal({});
                 });
             });
         });
@@ -638,12 +808,6 @@ describe('PURRL', function () {
             expect(order).to.deep.equal([1, 2]);
         });
 
-        it('call each function in the hook\'s list on the internal [ hookGlobal ] object', function () {
-            PURRL.hook(purrl, 'onData');
-            expect(fakeHook1.firstCall.calledOn(purrl[' internal'].hookGlobal)).to.be.true;
-            expect(fakeHook2.firstCall.calledOn(purrl[' internal'].hookGlobal)).to.be.true;
-        });
-
         it('should return the hookContext', function () {
             var returned = PURRL.hook(purrl, 'onData');
             expect(returned).to.equal(fakeHook1.firstCall.args[0]);
@@ -688,22 +852,228 @@ describe('PURRL', function () {
             });
         });
 
-        describe('hook context .cancel()', function () {
-            it('should cancel execution of later hooks in the chain', function () {
-                purrl.config('addHook', 'onData', function (context) { context.cancel(); }, 1);
-                PURRL.hook(purrl, 'onData');
-                expect(fakeHook1.callCount).to.equal(1);
-                expect(fakeHook2.callCount).to.equal(0);
+        describe('hook context object', function () {
+            describe('.cancel()', function () {
+                it('should cancel execution of later hooks in the chain', function () {
+                    purrl.config('addHook', 'onData', function (context) { context.cancel(); }, 1);
+                    PURRL.hook(purrl, 'onData');
+                    expect(fakeHook1.callCount).to.equal(1);
+                    expect(fakeHook2.callCount).to.equal(0);
+                });
+            });
+
+            describe('.getSessionContext()', function () {
+                it('should return the internal session context', function () {
+                    var sessionContext = null;
+                    purrl.config('addHook', 'onData', function (context) { sessionContext = context.getSessionContext(); });
+                    purrl[' internal'].context.session.test = 'data';
+                    PURRL.hook(purrl, 'onData');
+                    expect(sessionContext).to.deep.equal({
+                        test : 'data'
+                    });
+                });
+            });
+
+            describe('.getRequestContext()', function () {
+                it('should return the internal request context', function () {
+                    var requestContext = null;
+                    purrl.config('addHook', 'onData', function (context) { requestContext = context.getRequestContext(); });
+                    purrl[' internal'].context.request.test = 'data';
+                    PURRL.hook(purrl, 'onData');
+                    expect(requestContext).to.deep.equal({
+                        test : 'data'
+                    });
+                });
             });
         });
     });
 
-    describe('.get()', function () {
+    describe('.header()', function () {
+        describe('when called with no arguments', function () {
+            it('should throw an error', function () {
+                try {
+                    purrl.header();
+                    expect(true, 'An error should have been thrown').to.be.false;
+                } catch (error) {
+                    expect(error).to.be.an.instanceOf(Error);
+                    expect(error.message).to.equal('purrl.header() requires a [ key ] string and a [ value ]');
+                }
+            });
+        });
+
+        describe('when called with only a key', function () {
+            it('should throw an error', function () {
+                try {
+                    purrl.header('accepts');
+                    expect(true, 'An error should have been thrown').to.be.false;
+                } catch (error) {
+                    expect(error).to.be.an.instanceOf(Error);
+                    expect(error.message).to.equal('purrl.header() requires a [ key ] string and a [ value ]');
+                }
+            });
+        });
+
+        describe('when called with a non-string', function () {
+            it('should throw an error', function () {
+                try {
+                    purrl.header([], 1);
+                    expect(true, 'An error should have been thrown').to.be.false;
+                } catch (error) {
+                    expect(error).to.be.an.instanceOf(Error);
+                    expect(error.message).to.equal('purrl.header() requires a [ key ] string and a [ value ]');
+                }
+            });
+        });
+
+        describe('when called with a key and a value', function () {
+            it('should return the purrl object', function () {
+                expect(purrl.header('accept', 'application/json')).to.equal(purrl);
+            });
+
+            it('should set [ key ] to [ value ] on [ requestHeader ]', function () {
+                purrl.header('accept', 'application/json');
+                expect(purrl[' internal'].requestHeader).to.deep.equal({
+                    accept : 'application/json'
+                });
+            });
+        });
+    });
+
+    describe('.noHeader()', function () {
+        describe('when called with no arguments', function () {
+            it('should throw an error', function () {
+                try {
+                    purrl.noHeader();
+                    expect(true, 'An error should have been thrown').to.be.false;
+                } catch (error) {
+                    expect(error).to.be.an.instanceOf(Error);
+                    expect(error.message).to.equal('purrl.noHeader() requires a [ key ] string');
+                }
+            });
+        });
+        describe('when called with a non-string key', function () {
+            it('should throw an error', function () {
+                try {
+                    purrl.noHeader([]);
+                    expect(true, 'An error should have been thrown').to.be.false;
+                } catch (error) {
+                    expect(error).to.be.an.instanceOf(Error);
+                    expect(error.message).to.equal('purrl.noHeader() requires a [ key ] string');
+                }
+            });
+        });
+
+        describe('when called with a key', function () {
+            it('should return the purrl object', function () {
+                expect(purrl.noHeader('accept')).to.equal(purrl);
+            });
+
+            it('set the value of [ key ] to [ undefined ] on the [ requestHeader ]', function () {
+                purrl.noHeader('accept');
+                expect(purrl[' internal'].requestHeader).to.deep.equal({
+                    accept : undefined
+                });
+            });
+        });
+    });
+
+    describe('.param()', function () {
+        describe('when called with no arguments', function () {
+            it('should throw an error', function () {
+                try {
+                    purrl.param();
+                    expect(true, 'An error should have been thrown').to.be.false;
+                } catch (error) {
+                    expect(error).to.be.an.instanceOf(Error);
+                    expect(error.message).to.equal('purrl.param() requires a [ key ] string and a [ value ]');
+                }
+            });
+        });
+
+        describe('when called with only a key', function () {
+            it('should throw an error', function () {
+                try {
+                    purrl.param('key');
+                    expect(true, 'An error should have been thrown').to.be.false;
+                } catch (error) {
+                    expect(error).to.be.an.instanceOf(Error);
+                    expect(error.message).to.equal('purrl.param() requires a [ key ] string and a [ value ]');
+                }
+            });
+        });
+
+        describe('when called with only a non-string key', function () {
+            it('should throw an error', function () {
+                try {
+                    purrl.param([], 1);
+                    expect(true, 'An error should have been thrown').to.be.false;
+                } catch (error) {
+                    expect(error).to.be.an.instanceOf(Error);
+                    expect(error.message).to.equal('purrl.param() requires a [ key ] string and a [ value ]');
+                }
+            });
+        });
+
+        describe('when called with a key and a value', function () {
+            it('should return the purrl object', function () {
+                expect(purrl.param('key', 'KEY')).to.equal(purrl);
+            });
+
+            it('should set [ key ] to [ value ] on [ requestParam ]', function () {
+                purrl.param('key', 'KEY');
+                expect(purrl[' internal'].requestParam).to.deep.equal({
+                    key : 'KEY'
+                });
+            });
+        });
+    });
+
+    describe('.noParam()', function () {
+        describe('when called with no arguments', function () {
+            it('should throw an error', function () {
+                try {
+                    purrl.noParam();
+                    expect(true, 'An error should have been thrown').to.be.false;
+                } catch (error) {
+                    expect(error).to.be.an.instanceOf(Error);
+                    expect(error.message).to.equal('purrl.noParam() requires a [ key ] string');
+                }
+            });
+        });
+
+        describe('when called with a non-string key', function () {
+            it('should throw an error', function () {
+                try {
+                    purrl.noParam([]);
+                    expect(true, 'An error should have been thrown').to.be.false;
+                } catch (error) {
+                    expect(error).to.be.an.instanceOf(Error);
+                    expect(error.message).to.equal('purrl.noParam() requires a [ key ] string');
+                }
+            });
+        });
+
+        describe('when called with a key', function () {
+            it('should return the purrl object', function () {
+                expect(purrl.noParam('key')).to.equal(purrl);
+            });
+
+            it('set the value of [ key ] to [ null ] on the [ requestParam ]', function () {
+                purrl.noParam('key');
+                expect(purrl[' internal'].requestParam).to.deep.equal({
+                    key : undefined
+                });
+            });
+        });
+    });
+
+    describe('when sending a request', function () {
         var requestStub, requestObject;
         beforeEach(function () {
             requestObject = {
-                end : sinon.stub(),
-                on : sinon.stub()
+                on : sinon.stub(),
+                write : sinon.stub(),
+                end : sinon.stub()
             };
             requestStub = sinon.stub(require('http'), 'request').returns(requestObject);
             purrl.config('host', 'example.com');
@@ -713,13 +1083,34 @@ describe('PURRL', function () {
             requestStub.restore();
         });
 
-        it('should return undefined', function () {
-            expect(purrl.get()).to.be.undefined;
+        it('should call the [ onRequest ] hook', function () {
+            var onRequest = sinon.stub();
+            purrl.config('hook', 'onRequest', onRequest).get();
+            expect(onRequest.callCount).to.equal(1);
+            expect(onRequest.firstCall.args[0].request).to.equal(requestObject);
         });
 
         it('should clear the internal [ path ] array', function () {
             purrl('started', 'the', 'part').get();
             expect(purrl[' internal'].path).to.deep.equal([]);
+        });
+
+        it('should clear the internal [ requestParam ] array', function () {
+            purrl[' internal'].requestParam.key = 'VALUE';
+            purrl.get();
+            expect(purrl[' internal'].requestParam).to.deep.equal({});
+        });
+
+        it('should clear the internal [ requestHeader ] array', function () {
+            purrl[' internal'].requestHeader.accept = 'application/json';
+            purrl.get();
+            expect(purrl[' internal'].requestHeader).to.deep.equal({});
+        });
+
+        it('should clear the internal [ context.request ] object', function () {
+            purrl[' internal'].context.request.test = 'data';
+            purrl.config('hook', 'onRequest', []).get();
+            expect(purrl[' internal'].context.request).to.deep.equal({});
         });
 
         it('should call the protocol\'s [ request() ]', function () {
@@ -743,18 +1134,68 @@ describe('PURRL', function () {
             purrl.config({
                 host : 'example.com',
                 port : 8080,
-                query : {
+                header : {
+                    'content-type' : 'application/json',
+                    'content-length' : 1024
+                },
+                param : {
                     optOne : 'on&&e'
                 }
             })
-            .config('query', 'opt^:^Two', 'two two')
+            .config('param', 'option^:^Two', 'two two')
+            .header('x-powered-by', 'PURRL')
+            .param('three', 3)
             (1, 'dos', 'tro is').get();
+
             expect(requestStub.firstCall.args).to.deep.equal([{
                 hostname : 'example.com',
                 port : 8080,
+                headers : {
+                    'content-type' : 'application/json',
+                    'content-length' : '1024',
+                    'x-powered-by' : 'PURRL'
+                },
                 method : 'GET',
-                path : '/1/dos/tro%20is?optOne=on%26%26e&opt%5E%3A%5ETwo=two%20two'
+                path : '/1/dos/tro%20is?optOne=on%26%26e&option%5E%3A%5ETwo=two%20two&three=3'
             }]);
+        });
+
+        describe('when a [ key ] is set to [ undefined ] in [ requestHeader ]', function () {
+            it('should suppress that value if it is set in [ header ]', function () {
+                purrl.config({
+                    host : 'example.com',
+                    header : {
+                        'content-type' : 'application/json',
+                        'content-length' : 1024
+                    }
+                }).noHeader('content-length').get();
+                expect(requestStub.firstCall.args).to.deep.equal([{
+                    hostname : 'example.com',
+                    headers : {
+                        'content-type' : 'application/json'
+                    },
+                    method : 'GET',
+                    path : '/'
+                }]);
+            });
+        });
+
+        describe('when a [ key ] is set to [ undefined ] in [ requestParam ]', function () {
+            it('should suppress that value if it is set in [ param ]', function () {
+                purrl.config({
+                    host : 'example.com',
+                    param : {
+                        key : 'KEY',
+                        token : 'TOKEN'
+                    }
+                }).noParam('key')('api').get();
+                expect(requestStub.firstCall.args).to.deep.equal([{
+                    hostname : 'example.com',
+                    headers : {},
+                    method : 'GET',
+                    path : '/api?token=TOKEN'
+                }]);
+            });
         });
 
         it('should set a listener on the [ response ] event of the request object', function () {
@@ -772,13 +1213,19 @@ describe('PURRL', function () {
             expect(requestObject.end.callCount).to.equal(1);
         });
 
-        describe('when [ response ] event is triggered', function () {
-            var responseObject, body;
+        describe('when the [ response ] event is triggered', function () {
+            var responseObject, onResponse, onData, onBody;
             beforeEach(function () {
                 var ctr, len;
-                purrl.config('hook', 'onBody', function (context) { body = context.body; }).get();
+                onResponse = sinon.stub();
+                onData = sinon.stub();
+                onBody = sinon.stub();
+                purrl.config('hook', {
+                    onResponse : onResponse,
+                    onData : onData,
+                    onBody : onBody
+                }).get();
                 responseObject = {
-                    setEncoding : sinon.stub(),
                     on : sinon.stub()
                 };
                 for (ctr = 0, len = requestObject.on.callCount; ctr < len; ctr++) {
@@ -789,6 +1236,11 @@ describe('PURRL', function () {
                 }
             });
 
+            it('should call the [ onResponse ] hook', function () {
+                expect(onResponse.callCount).to.equal(1);
+                expect(onResponse.firstCall.args[0].response).to.equal(responseObject);
+            });
+
             it('should register a listener for the [ data ] event on the response object.', function () {
                 expect(responseObject.on.calledWith('data')).to.be.true;
             });
@@ -797,28 +1249,114 @@ describe('PURRL', function () {
                 expect(responseObject.on.calledWith('end')).to.be.true;
             });
 
-            it('should set the encoding for the response to [ utf8 ]', function () {
-                expect(responseObject.setEncoding.callCount).to.equal(1);
-                expect(responseObject.setEncoding.firstCall.args).to.deep.equal(['utf8']);
-            });
-
             describe('[ data ] and [ end ] handling', function () {
-                it('should append together all data chunks and send them to the [ onBody ] hook', function () {
-                    var ctr, len, onData, onEnd;
+                var sendData, sendEnd;
+                beforeEach(function () {
+                    var ctr, len;
                     for (ctr = 0, len = responseObject.on.callCount; ctr < len; ctr++) {
                         if (responseObject.on.getCall(ctr).args[0] === 'data') {
-                            onData = responseObject.on.getCall(ctr).args[1];
+                            sendData = responseObject.on.getCall(ctr).args[1];
                         }
                         if (responseObject.on.getCall(ctr).args[0] === 'end') {
-                            onEnd = responseObject.on.getCall(ctr).args[1];
+                            sendEnd = responseObject.on.getCall(ctr).args[1];
                         }
                     }
-                    onData('first');
-                    onData(' second');
-                    onData(' third');
-                    onEnd();
-                    expect(body).to.equal('first second third');
                 });
+
+                it('should append together all data chunks and send them to the [ onBody ] hook', function () {
+                    sendData('first');
+                    sendData(' second');
+                    sendData(' third');
+                    sendEnd();
+                    expect(onData.callCount).to.equal(3);
+                    expect(onData.getCall(0).args[0].data).to.equal('first');
+                    expect(onData.getCall(1).args[0].data).to.equal(' second');
+                    expect(onData.getCall(2).args[0].data).to.equal(' third');
+                    expect(onBody.firstCall.args[0].body).to.equal('first second third');
+                });
+
+                it('should allow [ onData ] handlers to alter the data', function () {
+                    purrl.config('hook', 'onData', [
+                        function (context) {
+                            context.data = context.data
+                            .toUpperCase();
+                        },
+                        function (context) {
+                            if (context.data[0] === ' ') {
+                                context.data = ',' + context.data;
+                            }
+                        }
+                    ]);
+                    sendData('first');
+                    sendData(' second');
+                    sendData(' third');
+                    sendEnd();
+                    expect(onBody.firstCall.args[0].body).to.equal('FIRST, SECOND, THIRD');
+                });
+
+                it('should allow [ onData ] handlers to cancel individual data chunks', function () {
+                    purrl.config('hook', 'onData', [
+                        function (context) {
+                            if (context.data.indexOf('c') !== -1) {
+                                context.cancel();
+                            }
+                        }
+                    ]);
+                    sendData('first');
+                    sendData(' second');
+                    sendData(' third');
+                    sendEnd();
+                    expect(onBody.firstCall.args[0].body).to.equal('first third');
+                });
+            });
+        });
+
+        describe('when a value is passed', function () {
+            var beforeRequestBody;
+            beforeEach(function () {
+                beforeRequestBody = sinon.stub();
+                purrl.config('hook', 'beforeRequestBody', beforeRequestBody);
+            });
+
+            it('should add the [ Transfer-Encoding ] header', function () {
+                purrl.post('Test Body');
+                expect(requestStub.firstCall.args[0].headers).to.have.property('transfer-encoding');
+                expect(requestStub.firstCall.args[0].headers['transfer-encoding']).to.equal('chunked');
+            });
+
+            it('should not alter an transient explicit [ Transfer-Encoding ] header', function () {
+                purrl.header('transfer-encoding', 'utf8').post('Test Body');
+                expect(requestStub.firstCall.args[0].headers['transfer-encoding']).to.equal('utf8');
+            });
+
+            it('should not alter an persistent explicit [ Transfer-Encoding ] header', function () {
+                purrl.config('header', 'transfer-encoding', 'utf8').post('Test Body');
+                expect(requestStub.firstCall.args[0].headers['transfer-encoding']).to.equal('utf8');
+            });
+
+            it('should call request.write()', function () {
+                purrl.post('Test Body');
+                expect(requestObject.write.callCount).to.equal(1);
+                expect(requestObject.write.firstCall.args).to.deep.equal(['Test Body']);
+            });
+
+            it('should call the [ beforeRequestBody ] hook', function () {
+                purrl.post('Test Body');
+                expect(beforeRequestBody.callCount).to.equal(1);
+                expect(beforeRequestBody.firstCall.args[0].body).to.deep.equal('Test Body');
+            });
+
+            it('should allow the [ beforeRequestBody ] hook to cancel sending the body', function () {
+                purrl.config('hook', 'beforeRequestBody', function (context) { context.cancel(); });
+                purrl.post('Test Body');
+                expect(requestObject.write.callCount).to.equal(0);
+            });
+
+            it('should use the body as changed by the [ beforeRequestBody ] hook', function () {
+                purrl.config('hook', 'beforeRequestBody', function (context) { context.body = context.body.toUpperCase(); });
+                purrl.post('Test Body');
+                expect(requestObject.write.callCount).to.equal(1);
+                expect(requestObject.write.firstCall.args).to.deep.equal(['TEST BODY']);
             });
         });
 
@@ -836,10 +1374,70 @@ describe('PURRL', function () {
                 expect(onRequestErrorStub.firstCall.args[0].error).to.equal(testError);
             });
         });
+
+        describe('.get()', function () {
+            it('should return undefined', function () {
+                expect(purrl.get()).to.be.undefined;
+            });
+
+            it('should cause the request method to be [ GET ]', function () {
+                purrl.get();
+                expect(requestStub.firstCall.args[0].method).to.equal('GET');
+            });
+        });
+
+        describe('.post()', function () {
+            it('should return undefined', function () {
+                expect(purrl.post()).to.be.undefined;
+            });
+
+            it('should cause the request method to be [ POST ]', function () {
+                purrl.post();
+                expect(requestStub.firstCall.args[0].method).to.equal('POST');
+            });
+        });
+
+        describe('.put()', function () {
+            it('should return undefined', function () {
+                expect(purrl.put()).to.be.undefined;
+            });
+
+            it('should cause the request method to be [ PUT ]', function () {
+                purrl.put();
+                expect(requestStub.firstCall.args[0].method).to.equal('PUT');
+            });
+        });
+
+        describe('.patch()', function () {
+            it('should return undefined', function () {
+                expect(purrl.patch()).to.be.undefined;
+            });
+
+            it('should cause the request method to be [ PATCH ]', function () {
+                purrl.patch();
+                expect(requestStub.firstCall.args[0].method).to.equal('PATCH');
+            });
+        });
+
+        describe('.delete()', function () {
+            it('should return undefined', function () {
+                expect(purrl.delete()).to.be.undefined;
+            });
+
+            it('should cause the request method to be [ DELETE ]', function () {
+                purrl.delete();
+                expect(requestStub.firstCall.args[0].method).to.equal('DELETE');
+            });
+        });
     });
 
     describe('default error or success handling', function () {
+        var context, requestContext;
         beforeEach(function () {
+            requestContext = {};
+            context = {
+                getRequestContext : sinon.stub().returns(requestContext)
+            };
             sinon.stub(console, 'log');
         });
 
@@ -847,47 +1445,109 @@ describe('PURRL', function () {
             console.log.restore();
         });
 
+        it('should store the request object in the [ requestContext ]', function () {
+            context.request = {name : 'requestObject'};
+            purrl[' internal'].hook.onRequest[0].call(null, context);
+            expect(requestContext.request).to.equal(context.request);
+        });
+
+        it('should serialize a response body of type [ object ] to JSON and set the Content-Type header', function () {
+            context.body = {
+                test : 'value'
+            };
+            requestContext.request = {
+                setHeader : sinon.stub()
+            };
+            purrl[' internal'].hook.beforeRequestBody[0].call(null, context);
+            expect(context.body).to.equal('{"test":"value"}');
+            expect(requestContext.request.setHeader.callCount).to.equal(2);
+            expect(requestContext.request.setHeader.firstCall.args).to.deep.equal(['Content-Type', 'application/json']);
+            expect(requestContext.request.setHeader.secondCall.args).to.deep.equal(['Content-Length', 16]);
+        });
+
+        it('should serialize a response body of type [ array ] to JSON and set the Content-Type header', function () {
+            context.body = ['test', 'value'];
+            requestContext.request = {
+                setHeader : sinon.stub()
+            };
+            purrl[' internal'].hook.beforeRequestBody[0].call(null, context);
+            expect(context.body).to.equal('["test","value"]');
+            expect(requestContext.request.setHeader.callCount).to.equal(2);
+            expect(requestContext.request.setHeader.firstCall.args).to.deep.equal(['Content-Type', 'application/json']);
+            expect(requestContext.request.setHeader.secondCall.args).to.deep.equal(['Content-Length', 16]);
+        });
+
+        it('should not alter a response body of type [ string ]', function () {
+            context.body = 'test value';
+            requestContext.request = {
+                setHeader : sinon.stub()
+            };
+            purrl[' internal'].hook.beforeRequestBody[0].call(null, context);
+            expect(context.body).to.equal('test value');
+            expect(requestContext.request.setHeader.callCount).to.equal(0);
+        });
+
+        it('should set the response encoding to [ utf8 ]', function () {
+            var responseObject = {
+                setEncoding : sinon.stub()
+            };
+            purrl[' internal'].hook.onResponse[0].call(null, {response : responseObject});
+            expect(responseObject.setEncoding.callCount).to.equal(1);
+            expect(responseObject.setEncoding.firstCall.args).to.deep.equal(['utf8']);
+        });
+
         it('should output the results from the call to the console', function () {
-            var hookGlobal = {};
-            purrl[' internal'].hook.onBody[0].call(hookGlobal, {body : 'The whole enchilada.'});
+            purrl[' internal'].hook.onBody[0].call(null, {body : 'The whole enchilada.'});
             expect(console.log.callCount).to.equal(1);
             expect(console.log.firstCall.args[0]).to.equal('The whole enchilada.');
         });
 
         it('should output the error from the call to the console', function () {
-            var hookGlobal = {};
-            purrl[' internal'].hook.onRequestError[0].call(hookGlobal, {error : 'Something bad happened.'});
+            purrl[' internal'].hook.onRequestError[0].call(null, {error : 'Something bad happened.'});
             expect(console.log.callCount).to.equal(1);
             expect(console.log.firstCall.args).to.deep.equal(['Something bad happened.']);
         });
     });
 
     describe('in the REPL', function () {
-        var replCallback;
+        var contextObj, requestContext;
         beforeEach(function () {
-            replCallback = sinon.stub();
-            global[' requestCallback'] = sinon.stub().returns(replCallback);
-            purrl.config(PURRL.defaultReplConfig);
+            requestContext = {
+                replCallback : sinon.stub()
+            };
+            contextObj = {
+                getRequestContext : sinon.stub().returns(requestContext)
+            };
+            purrl = new PURRL(PURRL.defaultReplConfig);
         });
 
-        afterEach(function () {
-            delete global[' requestCallback'];
+        it('should put the replCallback in the request context beforeRequest', function () {
+            var temp = requestContext.replCallback;
+            global[' requestCallback'] = sinon.stub().returns(temp);
+            delete requestContext.replCallback;
+            try {
+                purrl[' internal'].hook.beforeRequest[0].call(null, contextObj);
+                expect(contextObj.getRequestContext.callCount).to.equal(1);
+                expect(requestContext.replCallback).to.equal(temp);
+            } finally {
+                delete global[' requestCallback'];
+            }
         });
 
         it('should call the REPL callback with the results from the call', function () {
-            var hookGlobal = {};
-            purrl[' internal'].hook.beforeRequest[0].call(hookGlobal, {});
-            purrl[' internal'].hook.onBody[0].call(hookGlobal, {body : 'The whole enchilada.'});
-            expect(replCallback.callCount).to.equal(1);
-            expect(replCallback.firstCall.args).to.deep.equal([null, 'The whole enchilada.']);
+            contextObj.body = 'The whole enchilada.';
+            purrl[' internal'].hook.onBody[0].call(null, contextObj);
+            expect(contextObj.getRequestContext.callCount).to.equal(1);
+            expect(requestContext.replCallback.callCount).to.equal(1);
+            expect(requestContext.replCallback.firstCall.args).to.deep.equal([null, 'The whole enchilada.']);
         });
 
         it('should call the REPL callback with the error from the call', function () {
-            var hookGlobal = {};
-            purrl[' internal'].hook.beforeRequest[0].call(hookGlobal, {});
-            purrl[' internal'].hook.onRequestError[0].call(hookGlobal, {error : 'Something bad happened.'});
-            expect(replCallback.callCount).to.equal(1);
-            expect(replCallback.firstCall.args).to.deep.equal(['Something bad happened.']);
+            contextObj.error = 'Something bad happened.';
+            purrl[' internal'].hook.onRequestError[0].call(null, contextObj);
+            expect(contextObj.getRequestContext.callCount).to.equal(1);
+            expect(requestContext.replCallback.callCount).to.equal(1);
+            expect(requestContext.replCallback.firstCall.args).to.deep.equal(['Something bad happened.']);
         });
     });
 });
