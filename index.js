@@ -23,6 +23,7 @@ function confFn (options) {
     function defaultsTo (test, defaultValue) { return test === undefined ? defaultValue : test; }
 
     fn.read = defaultsTo(fn.read, true);
+    fn.thisIsPurrl = defaultsTo(fn.thisIsPurrl, false);
 
     return fn;
 }
@@ -138,6 +139,67 @@ var I = ' internal', configurations = {
         }
         delete this.header[key];
     }),
+    pathElement : confFn({
+        thisIsPurrl : true
+    }, function pathElement (key, value) {
+        var self = this, internal = self[I];
+        switch (Object.prototype.toString.call(key)) {
+            case '[object Undefined]': {
+                return internal.pathElement;
+            }
+            case '[object String]': {
+                switch (Object.prototype.toString.call(value)) {
+                    case '[object Undefined]': {
+                        return {
+                            passThrough : true,
+                            value : internal.pathElement[key]
+                        };
+                    }
+                    case '[object Array]': {
+                        if (Object.getOwnPropertyDescriptor(self, key) !== undefined && !internal.pathElement.hasOwnProperty(key)) {
+                            throw new Error('The pathElement [ get ] conflicts with another property.');
+                        }
+                        internal.pathElement[key] = value.map(function (item) { return item.toString(); });
+                        Object.defineProperty(self, key, {
+                            configurable : true,
+                            enumerable : true,
+                            get : function () {
+                                Array.prototype.push.apply(internal.path, internal.pathElement[key]);
+                                return self;
+                            }
+                        });
+                        break;
+                    }
+                    default: {
+                        return pathElement.call(self, key, [value]);
+                    }
+                }
+                break;
+            }
+            case '[object Object]': {
+                Object.keys(key).forEach(function (name) {
+                    pathElement.call(self, name, key[name]);
+                });
+                break;
+            }
+            default: {
+                throw new Error('The pathElement setting must be [ key ] and [ value ] or a [ pathElement ] object.');
+            }
+        }
+    }),
+    removePathElement : confFn({
+        thisIsPurrl : true,
+        read : false
+    },
+    function (key) {
+        if (key === undefined) {
+            throw new Error('The removePathElement setting must be passed a pathElement key [ string ]');
+        }
+        if (this[I].pathElement.hasOwnProperty(key)) {
+            delete this[I].pathElement[key];
+            delete this[key];
+        }
+    }),
     hook : confFn(function hook (key, value) {
         var self = this, result;
         switch (Object.prototype.toString.call(key)) {
@@ -215,6 +277,7 @@ var I = ' internal', configurations = {
         }
         return {
             passThrough : true,
+            unaltered : true,
             value : result
         };
     })
@@ -239,7 +302,11 @@ function config (purrl, option) {
         Object.keys(configurations)
         .filter(function (option) { return configurations[option].read; })
         .forEach(function (option) {
-            current = configurations[option].call(purrl[I]);
+            if (configurations[option].thisIsPurrl) {
+                current = configurations[option].call(purrl);
+            } else {
+                current = configurations[option].call(purrl[I]);
+            }
             if (current.passThrough) {
                 current = current.value;
             }
@@ -259,10 +326,17 @@ function config (purrl, option) {
                 for (current = 2, len = arguments.length, args = []; current < len; current++) {
                     args.push(arguments[current]);
                 }
-                result = configurations[option].apply(purrl[I], args);
+                if (configurations[option].thisIsPurrl) {
+                    result = configurations[option].apply(purrl, args);
+                } else {
+                    result = configurations[option].apply(purrl[I], args);
+                }
                 if (result !== undefined) {
                     if (result.passThrough) {
-                        return result.value;
+                        if (result.value === undefined || result.unaltered) {
+                            return result.value;
+                        }
+                        result = result.value;
                     }
                     return JSON.parse(JSON.stringify(result));
                 }
@@ -428,6 +502,7 @@ function createPurrl () {
         writable : false,
         value : {
             path : [],
+            pathElement : {},
             header : {},
             requestHeader : {},
             param : {},

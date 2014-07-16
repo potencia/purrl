@@ -49,10 +49,12 @@ See the [Trello API documentation](https://trello.com/docs/) for details about t
         .config('port', 443)              // default is 80 for 'http' and 443 for 'https'
         .config('param', 'key', /* YOUR APPLICATION KEY */)
         .config('param', 'token', /* YOUR USER OAUTH TOKEN */)
+        .config('pathElement', 'me', ['members', 'me'])
+        .config('pathElement', 'boards', 'boards')
         .config('hook', 'onBody', function (context) { result = JSON.parse(context.body); });
 
     // Issue a GET request
-    purrl(1, 'members', 'me').get();
+    purrl(1).me.get();
 
     // ...
     // Once the HTTP request's end event is emitted
@@ -60,7 +62,13 @@ See the [Trello API documentation](https://trello.com/docs/) for details about t
     // the result variable.
     // ...
 
-    console.log(result.idBoards); // prints your Trello board ids
+    purrl(1).boards(result.idBoards[0]).get();
+
+    // ...
+    // Wait for the request to complete
+    // ...
+
+    console.log(result);
 
 ----------------------------------------------------------------------
 
@@ -77,15 +85,21 @@ Here is the same example but using the custom PURRL [REPL](http://nodejs.org/api
     ... param : {
     ..... key : /* YOUR APPLICATION KEY */,
     ..... token : /* YOUR USER OAUTH TOKEN */
+    ..... },
+    ... pathElement : {
+    ..... me : ['members', 'me'],
+    ..... boards : 'boards'
     ..... }
     ... });
-    purrl> purrl(1, 'members', 'me').get();
-    purrl> var result = JSON.parse(_);
-    purrl> console.log(result.idBoards); // prints your Trello board ids
+    purrl> purrl(1).me.get();
+    purrl> var meJson = JSON.parse(_);
+    purrl> purrl(1).boards(meJson.idBoards[0]).get();
+    purrl> var myFirstBoardJson = JSON.parse(_);
+    purrl> console.log(myFirstBoardJson);
 
 A few items to note: The purrl instance is automatically instantiated for you. Special hooks are pre-registered for you that block the REPL until the
 response is complete and then return the body as if it were the return value of the call. (In reality, the body is not the actual return value so a statement
-like `purrl> var results = purrl('1', 'members', 'me').get();` would not set the `results` variable to the returned body (as might be expected) but would set
+like `purrl> var results = purrl(1).me.get();` would not set the `results` variable to the returned body (as might be expected) but would set
 `results` to `undefined`. The `_` variable would still contain the returned body.
 
 ----------------------------------------------------------------------
@@ -404,6 +418,44 @@ For a multi-value option, the named value is set.
         <td></td>
         <td colspan="5">
             Removes the parameter matching the provided key from the object containing the persistent query parameters.
+        </td>
+    </tr>
+    <tr>
+        <td><b>pathElement</b></td>
+        <td>multi-value</td>
+        <td>read/write</td>
+        <td></td>
+        <td>Any valid, non-conflicting property name</td>
+        <td>value or array of values</td>
+    </tr>
+    <tr>
+        <td></td>
+        <td colspan="5">
+            <p>Adds a path element property that can be used to specify portions of the URL path.</p>
+            <pre>purrl.config('pathElement', 'boards', 'boards');</pre>
+            <p>adds the <code>boards</code> property to the purrl object</p>
+            <pre>purrl.config('pathElement', 'my', [1, 'members', 'my']);</pre>
+            <p>adds the <code>my</code> property to the purrl object</p>
+            <p>After these two statements the following is possible:</p>
+            <pre>purrl.my.boards.get();
+// Sends a GET request to the URL /1/members/my/boards</pre>
+            <p>Any valid property name can be used, but it cannot overwrite an already existing property (that is not a path element property)</p>
+            <pre>purrl.config('pathElement', 'get', ['go', 'and', 'get', 'it']);</pre>
+            <p>fails because the <code>get()</code> verb method already exists on the purrl object.</p>
+        </td>
+    </tr>
+    <tr>
+        <td><b>removePathElement</b></td>
+        <td>special</td>
+        <td>write-only</td>
+        <td></td>
+        <td></td>
+        <td>path element property names</td>
+    </tr>
+    <tr>
+        <td></td>
+        <td colspan="5">
+            Removes the path element property matching the provided key from the purrl object and from the configuration.
         </td>
     </tr>
     <tr>

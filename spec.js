@@ -452,6 +452,199 @@ describe('PURRL', function () {
             });
         });
 
+        describe('option [ pathElement ]', function () {
+            describe('when passed no setting', function () {
+                it('should return a copy of the currently set custom path parameters', function () {
+                    expect(purrl.config('pathElement')).to.deep.equal({});
+                    expect(purrl.config('pathElement')).to.not.equal(purrl[' internal'].pathElement);
+                    expect(purrl.config('pathElement', 'members', 'members').config('pathElement')).to.deep.equal({
+                        members : ['members']
+                    });
+                });
+            });
+
+            describe('when passed neither a key name or a pathElement object', function () {
+                it('should throw an error', function () {
+                    try {
+                        purrl.config('pathElement', []);
+                        expect(true, 'An error should have been thrown').to.be.false;
+                    } catch (error) {
+                        expect(error).to.be.an.instanceOf(Error);
+                        expect(error.message).to.equal('The pathElement setting must be [ key ] and [ value ] or a [ pathElement ] object.');
+                    }
+                });
+            });
+
+            describe('when passed a key name without a value', function () {
+                it('should return the list of elements for the key', function () {
+                    expect(purrl.config('pathElement', 'members')).to.be.undefined;
+                    expect(purrl.config('pathElement', 'members', 'members').config('pathElement', 'members')).to.deep.equal(['members']);
+                    expect(purrl.config('pathElement', 'members')).to.not.equal(purrl[' internal'].pathElement.members);
+                });
+            });
+
+            describe('when passed a valid key / value pair', function () {
+                it('should return the purrl object', function () {
+                    expect(purrl.config('pathElement', 'members', 'members')).to.deep.equal(purrl);
+                });
+
+                it('should add the key as a property', function () {
+                    purrl.config('pathElement', 'me', [1, 'members', 'me']);
+                    expect(purrl).to.have.property('me');
+                });
+
+                describe('when the value is a string', function () {
+                    it('should add to the configuration, under the key, the value in an array', function () {
+                        expect(purrl.config('pathElement', 'members', 'members').config('pathElement')).to.deep.equal({
+                            members : ['members']
+                        });
+                        expect(purrl.config('pathElement', 'me', 'me').config('pathElement')).to.deep.equal({
+                            members : ['members'],
+                            me : ['me']
+                        });
+                    });
+                });
+
+                describe('when the value is a non string', function () {
+                    it('should add to the configuration, under the key, the value in an array', function () {
+                        expect(purrl.config('pathElement', 'one', 1).config('pathElement')).to.deep.equal({
+                            one : ['1']
+                        });
+                    });
+                });
+
+                describe('when the value is an array of all string items', function () {
+                    it('should add to the configuration, under the key, the array value', function () {
+                        expect(purrl.config('pathElement', 'me', ['members', 'me']).config('pathElement')).to.deep.equal({
+                            me : ['members', 'me']
+                        });
+                    });
+                });
+
+                describe('when the value is an array will some non-string items', function () {
+                    it('should convert the non-strings to strings then add to the configuration, under the key, the array', function () {
+                        expect(purrl.config('pathElement', 'me', [1, 'members', 'me']).config('pathElement')).to.deep.equal({
+                            me : ['1', 'members', 'me']
+                        });
+                    });
+                });
+            });
+
+            describe('when the key name is the same as an existing custom path element', function () {
+                it('should replace the custom path element', function () {
+                    purrl.config('pathElement', 'me', 'me');
+                    purrl.config('pathElement', 'me', [1, 'members', 'me']);
+                    expect(purrl.config('pathElement', 'me')).to.deep.equal(['1', 'members', 'me']);
+                    expect(purrl.me.me[' internal'].path).to.deep.equal(['1', 'members', 'me', '1', 'members', 'me']);
+                });
+            });
+
+            describe('when the key name is the same as an existing purrl property that is not a custom path element', function () {
+                it('should throw an exception', function () {
+                    try {
+                        purrl.config('pathElement', 'get', 'get');
+                        expect(true, 'An error should have been thrown').to.be.false;
+                    } catch (error) {
+                        expect(error).to.be.an.instanceOf(Error);
+                        expect(error.message).to.equal('The pathElement [ get ] conflicts with another property.');
+                    }
+                });
+            });
+
+            describe('added property', function () {
+                beforeEach(function () {
+                    purrl.config('pathElement', 'me', [1, 'members', 'me']);
+                });
+
+                it('should be configurable and enumerable', function () {
+                    var descriptor = Object.getOwnPropertyDescriptor(purrl, 'me');
+                    expect(descriptor.configurable).to.be.true;
+                    expect(descriptor.enumerable).to.be.true;
+                });
+
+                it('should return the purrl object', function () {
+                    expect(purrl.me).to.equal(purrl);
+                });
+
+                it('should add all path elements to the internal path', function () {
+                    purrl.me;
+                    expect(purrl[' internal'].path).to.deep.equal(['1', 'members', 'me']);
+                });
+            });
+
+            describe('when passed a valid object setting', function () {
+                it('should return the purrl object', function () {
+                    expect(purrl.config('pathElement', {
+                        one : 1,
+                        me : [1, 'members', 'me']
+                    })).to.equal(purrl);
+                });
+
+                it('should add the key / value pairs to the pathElement configuration', function () {
+                    purrl.config('pathElement', 'cards', 'cards');
+                    expect(purrl.config('pathElement', {
+                        one : 1,
+                        me : [1, 'members', 'me']
+                    }).config('pathElement')).to.deep.equal({
+                        cards : ['cards'],
+                        one : ['1'],
+                        me : ['1', 'members', 'me']
+                    });
+                });
+            });
+        });
+
+        describe('option [ removePathElement ]', function () {
+            describe('when passed no pathElement key', function () {
+                it('should throw an error', function () {
+                    try {
+                        purrl.config('removePathElement');
+                        expect(true, 'An error should have been thrown').to.be.false;
+                    } catch (error) {
+                        expect(error).to.be.an.instanceOf(Error);
+                        expect(error.message).to.equal('The removePathElement setting must be passed a pathElement key [ string ]');
+                    }
+                });
+            });
+
+            describe('when passed a pathElement key', function () {
+                it('should return the purrl object', function () {
+                    expect(purrl.config('removePathElement', 'me')).to.equal(purrl);
+                });
+
+                it('should remove pathElement from the object of pathElements', function () {
+                    purrl.config('pathElement', {
+                        boards : 'boards',
+                        me : [1, 'members', 'me']
+                    });
+                    purrl.config('removePathElement', 'me');
+                    expect(purrl.config('pathElement')).to.deep.equal({boards : ['boards']});
+                    purrl.config('removePathElement', 'me');
+                    expect(purrl.config('pathElement')).to.deep.equal({boards : ['boards']});
+                    purrl.config('removePathElement', 'boards');
+                    expect(purrl.config('pathElement')).to.deep.equal({});
+                    purrl.config('removePathElement', 'boards');
+                    expect(purrl.config('pathElement')).to.deep.equal({});
+                });
+
+                it('should remove the property from the purrl object', function () {
+                    purrl.config('pathElement', {
+                        boards : 'boards',
+                        me : [1, 'members', 'me']
+                    });
+                    purrl.config('removePathElement', 'me');
+                    expect(purrl.me).to.be.undefined;
+                    purrl.config('removePathElement', 'boards');
+                    expect(purrl.boards).to.be.undefined;
+                });
+
+                it('should NOT remove properties from non-path element configurations from the purrl object', function () {
+                    purrl.config('removePathElement', 'get');
+                    expect(purrl).to.have.property('get');
+                });
+            });
+        });
+
         function onBody () { return 'body'; }
         function onData1 () { return 1 + 1; }
         function onData2 () { return 2 + 2; }
