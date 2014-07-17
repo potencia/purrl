@@ -9,19 +9,14 @@ function PlaceHolder (config) {
 }
 
 PlaceHolder.createOrPassthrough = function (value) {
-    var keyCount, str;
+    var keyCount;
     if (Object.prototype.toString.call(value) === '[object Object]') {
         keyCount = Object.keys(value).length;
         if (keyCount === 0 || Object.prototype.toString.call(value.p) === '[object String]') {
             return new PlaceHolder(value);
         }
-        str = value.toString();
-        if (str === '[object Object]') {
-            str = JSON.stringify(value);
-        }
-        return str;
     }
-    return value.toString();
+    return value;
 };
 
 Object.defineProperty(PlaceHolder.prototype, 'named', {
@@ -437,16 +432,26 @@ function buildBasicRequestOptions (purrl, verb) {
 }
 
 function buildRequestPath (purrl) {
-    var pathUrl = {};
+    var path = [], pathUrl = {};
 
-    pathUrl.pathname = '/' + purrl[I].path.map(function (segment) {
-        if (segment instanceof PlaceHolder) {
-            purrl[I].path = [];
-            throw new Error('Cannot send the request. Placeholders remain.');
+    try {
+        path = purrl[I].path.map(function (segment) {
+            if (segment instanceof PlaceHolder) {
+                throw new Error('Cannot send the request. Placeholders remain.');
+            }
+            return segment;
+        });
+    } finally {
+        purrl[I].path = [];
+    }
+
+    pathUrl.pathname = '/' + PURRL.hook(purrl, 'beforePath', {path : path}).path.map(function (segment) {
+        var toEncode = segment.toString();
+        if (toEncode === '[object Object]') {
+            toEncode = JSON.stringify(segment);
         }
-        return encodeURIComponent(segment);
+        return encodeURIComponent(toEncode);
     }).join('/');
-    purrl[I].path = [];
 
     pathUrl.query = {};
     Object.keys(purrl[I].param).forEach(function (key) {
@@ -553,22 +558,17 @@ placeholder = {
 
 function createPurrl () {
     function purrl () {
-        var ctr, len, element, str;
+        var ctr, len, element;
         for (ctr = 0, len = arguments.length; ctr < len; ctr++) {
             element = arguments[ctr];
             if (Object.prototype.toString.call(element) === '[object Object]') {
-                if (Object.keys(element).some(placeholder.named, {purrl : purrl, element : element})) {
-                    str = element.toString();
-                    if (str === '[object Object]') {
-                        str = JSON.stringify(element);
-                    }
+                if (!Object.keys(element).some(placeholder.named, {purrl : purrl, element : element})) {
+                    element = undefined;
                 }
-            } else {
-                str = element.toString();
             }
-            if (str !== undefined) {
-                if (purrl[I].path.every(placeholder.nonNamed, {value : str})) {
-                    purrl[I].path.push(str);
+            if (element !== undefined) {
+                if (purrl[I].path.every(placeholder.nonNamed, {value : element})) {
+                    purrl[I].path.push(element);
                 }
             }
         }
@@ -591,6 +591,7 @@ function createPurrl () {
                 request : {}
             },
             hook : {
+                beforePath : [],
                 beforeRequest : [],
                 onRequest : [],
                 onRequestError : [],

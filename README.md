@@ -44,17 +44,18 @@ See the [Trello API documentation](https://trello.com/docs/) for details about t
     // Configure the client instance:
     var result;
     purrl
-        .config('protocol', 'https')      // default is 'http'
-        .config('host', 'trello.com')
-        .config('port', 443)              // default is 80 for 'http' and 443 for 'https'
+        .config('protocol', 'https') // default is 'http'
+        .config('host', 'trello.com') // this setting is required
+        .config('port', 443) // default is 80 for 'http' and 443 for 'https'
         .config('param', 'key', /* YOUR APPLICATION KEY */)
         .config('param', 'token', /* YOUR USER OAUTH TOKEN */)
         .config('pathElement', 'me', ['members', 'me'])
         .config('pathElement', 'board', ['boards', {}])
-        .config('hook', 'onBody', function (context) { result = JSON.parse(context.body); });
+        .config('hook', 'onBody', function (context) { result = JSON.parse(context.body); })
+        .config('hook', 'beforePath', function (context) { context.path.unshift(1); });
 
     // Issue a GET request
-    purrl(1).me.get();
+    purrl.me.get();
 
     // ...
     // Once the HTTP request's end event is emitted
@@ -62,7 +63,7 @@ See the [Trello API documentation](https://trello.com/docs/) for details about t
     // the result variable.
     // ...
 
-    purrl(1).board(result.idBoards[0]).get();
+    purrl.board(result.idBoards[0]).get();
 
     // ...
     // Wait for the request to complete
@@ -89,11 +90,16 @@ Here is the same example but using the custom PURRL [REPL](http://nodejs.org/api
     ... pathElement : {
     ..... me : ['members', 'me'],
     ..... board : ['boards', {}]
+    ..... },
+    ... hook : {
+    ..... beforePath : function (context) {
+    ....... context.path.unshift(1);
+    ....... }
     ..... }
     ... });
-    purrl> purrl(1).me.get();
+    purrl> purrl.me.get();
     purrl> var meJson = JSON.parse(_);
-    purrl> purrl(1).board(meJson.idBoards[0]).get();
+    purrl> purrl.board(meJson.idBoards[0]).get();
     purrl> var myFirstBoardJson = JSON.parse(_);
     purrl> console.log(myFirstBoardJson);
 
@@ -449,9 +455,8 @@ but is *not* a pathElement property.
     // The purrl.post() verb method cannot be replaced with a pathElement property
     purrl.config('pathElement', 'post', ['api', 1, 'post']); // error
 
-The pathElement value can be a single value (which will be converted to a string), a placeholder object (see below), or an array. An array value can contain any
-combination of values and placeholder objects. Values in the array will be converted to strings, non-placeholder objects will be converted to their string
-representation or to JSON if no `toString()` method is defined for the object.
+The pathElement value can be a single value, a placeholder object (see below), or an array. An array value can contain any combination of values and placeholder
+objects.
 
     purrl.config('host', 'example.com');
     purrl.config('pathElement', 'apiV1_0', ['api', 1, 0]);
@@ -469,8 +474,8 @@ representation or to JSON if no `toString()` method is defined for the object.
 
     purrl.config('pathElement');
       // returns -> {
-      //     apiV1_0 : ['api', '1', '0'],
-      //     apiV1_1 : ['api', '1', '1'],
+      //     apiV1_0 : ['api', 1, 0],
+      //     apiV1_1 : ['api', 1, 1],
       //     people : ['people']
 
 Placeholder objects are expressed as JavaScript objects in the configuration. They can be empty (`{}`) or they can have the `p` property set to a string value
@@ -666,22 +671,22 @@ desire to reorder the functions in a hook's list.
 #### Configuration Option Quick Reference ####
 
 <table>
-    <thead><td><b>Option</b></td><td><b>Type</b></td><td><b>Access</b></td><td><b>Valid Names</b></td><td><b>Valid Values</b></td>
-           <td><b>Required</b></td></thead>
-    <tr><td><b>protocol</b></td><td>string</td><td>read/write</td><td></td><td>http, https</td><td>true, preset to 'http'</td></tr>
-    <tr><td><b>host</b></td><td>string</td><td>read/write</td><td></td><td></td><td>true</td></tr>
-    <tr><td><b>port</b></td><td>integer</td><td>read/write</td><td></td><td>1 - 65535</td><td></td></tr>
-    <tr><td><b>header</b></td><td>multi-value</td><td>read/write</td><td>any name</td><td>string values</td><td></td></tr>
-    <tr><td><b>removeHeader</b></td><td>special</td><td>write-only</td><td></td><td>header keys</td><td></td></tr>
-    <tr><td><b>param</b></td><td>multi-value</td><td>read/write</td><td>any name</td><td>string values</td><td></td></tr>
-    <tr><td><b>removeParam</b></td><td>special</td><td>write-only</td><td></td><td>query parameter keys</td><td></td></tr>
-    <tr><td><b>pathElement</b></td><td>multi-value</td><td>read/write</td><td>Any valid, non-conflicting property name</td>
-        <td>value, placeholder or array of values and placeholders</td><td></td></tr>
-    <tr><td><b>removePathElement</b></td><td>special</td><td>write-only</td><td></td><td>path element property names</td><td></td></tr>
-    <tr><td><b>hook</b></td><td>multi-value</td><td>read/write</td><td>See the Available Hooks section below</td><td>function or array of functions</td>
-        <td></td></tr>
-    <tr><td><b>addHook</b></td><td>special</td><td>write-only</td><td>See the Available Hooks section below</td><td>function, optional index</td><td></td></tr>
-    <tr><td><b>removeHook</b></td><td>special</td><td>write-only</td><td>See the Available Hooks section below</td><td>index</td><td></td></tr>
+  <thead><td><b>Option</b></td><td><b>Type</b></td><td><b>Access</b></td><td><b>Valid Names</b></td><td><b>Valid Values</b></td>
+         <td><b>Required</b></td></thead>
+  <tr><td><b>protocol</b></td><td>string</td><td>read/write</td><td></td><td>http, https</td><td>true, preset to 'http'</td></tr>
+  <tr><td><b>host</b></td><td>string</td><td>read/write</td><td></td><td></td><td>true</td></tr>
+  <tr><td><b>port</b></td><td>integer</td><td>read/write</td><td></td><td>1 - 65535</td><td></td></tr>
+  <tr><td><b>header</b></td><td>multi-value</td><td>read/write</td><td>any name</td><td>string values</td><td></td></tr>
+  <tr><td><b>removeHeader</b></td><td>special</td><td>write-only</td><td></td><td>header keys</td><td></td></tr>
+  <tr><td><b>param</b></td><td>multi-value</td><td>read/write</td><td>any name</td><td>string values</td><td></td></tr>
+  <tr><td><b>removeParam</b></td><td>special</td><td>write-only</td><td></td><td>query parameter keys</td><td></td></tr>
+  <tr><td><b>pathElement</b></td><td>multi-value</td><td>read/write</td><td>Any valid, non-conflicting property name</td>
+      <td>value, placeholder or array of values and placeholders</td><td></td></tr>
+  <tr><td><b>removePathElement</b></td><td>special</td><td>write-only</td><td></td><td>path element property names</td><td></td></tr>
+  <tr><td><b>hook</b></td><td>multi-value</td><td>read/write</td><td>See the Available Hooks section below</td><td>function or array of functions</td>
+      <td></td></tr>
+  <tr><td><b>addHook</b></td><td>special</td><td>write-only</td><td>See the Available Hooks section below</td><td>function, optional index</td><td></td></tr>
+  <tr><td><b>removeHook</b></td><td>special</td><td>write-only</td><td>See the Available Hooks section below</td><td>index</td><td></td></tr>
 </table>
 
 ### Hooks ###
@@ -711,6 +716,15 @@ is a place to put data that persists from one request to the next. No data from 
 
 #### Available Hooks ####
 
+##### beforePath #####
+
+Called once before the path segments are URL encoded and joined together.
+
+Special Context Data:
+
+`path` : The array of path segments that will be URL encoded and joined to form the request path.
+Any changes to this property will be reflected in the URL path.
+
 ##### beforeRequest #####
 
 Called once before the HTTP request is created.
@@ -724,15 +738,6 @@ Called once when the HTTP request is created.
 Special Context Data:
 
 `request` : The HTTP request object that will be used to send the request to the server.
-
-##### onRequestError #####
-
-Called once when the request emits an `error` event. This typically only happens due to a network layer problem, such as when the server refuses the request's
-connection.
-
-Special Context Data:
-
-`error` : The error passed to the request's `error` event callback.
 
 ##### beforeRequestBody #####
 
@@ -771,6 +776,29 @@ Called once when the HTTP response object emits an `end` event.
 Special Context Data:
 
 `body` : The concatenated data from each `data` event.
+
+##### onRequestError #####
+
+Called once when the request emits an `error` event. This typically only happens due to a network layer problem, such as when the server refuses the request's
+connection.
+
+Special Context Data:
+
+`error` : The error passed to the request's `error` event callback.
+
+#### Hooks Quick Reference ####
+
+<table>
+  <thead><td><b>Hook</b></td><td><b>Special Context Data</b></td><td><b>PURRL obeys <code>cancel()</code></b></td><td><b>Order</b></td></thead>
+  <tr><td><b>beforePath</b></td><td><code>path</code></td><td></td><td>0</td></tr>
+  <tr><td><b>beforeRequest</b></td><td></td><td></td><td>1</td></tr>
+  <tr><td><b>onRequest</b></td><td><code>request</code></td><td></td><td>2</td></tr>
+  <tr><td><b>beforeRequestBody</b></td><td><code>body</code></td><td>true</td><td>3</td></tr>
+  <tr><td><b>onResponse</b></td><td><code>response</code></td><td></td><td>4</td></tr>
+  <tr><td><b>onData</b></td><td><code>data</code></td><td>true</td><td>5</td></tr>
+  <tr><td><b>onBody</b></td><td><code>body</code></td><td></td><td>6</td></tr>
+  <tr><td><b>onRequestError</b></td><td><code>error</code></td><td></td><td>N/A</td></tr>
+</table>
 
 ----------------------------------------------------------------------
 

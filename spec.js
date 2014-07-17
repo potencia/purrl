@@ -16,21 +16,22 @@ describe('PURRL', function () {
         });
 
         it('should append each value as a string to the internal [ path ] array', function () {
-            purrl(1, 'part', {of : 'the'}, {toString : function () { return 'path'; }});
-            expect(purrl[' internal'].path).to.deep.equal(['1', 'part', '{"of":"the"}', 'path']);
+            var path = {toString : function () { return 'path'; }};
+            purrl(1, 'part', {of : 'the'}, path);
+            expect(purrl[' internal'].path).to.deep.equal([1, 'part', {of : 'the'}, path]);
         });
 
         describe('when the internal [ path ] contains non-named placeholders', function () {
             it('should replace each placeholder starting from left with each passed value', function () {
                 purrl.config('pathElement', 'placeholder', [1, {}, 2, {}]);
                 purrl.placeholder(3, 4);
-                expect(purrl[' internal'].path).to.deep.equal(['1', '3', '2', '4']);
+                expect(purrl[' internal'].path).to.deep.equal([1, 3, 2, 4]);
             });
 
             it('should append each value as a string to the end of the internal [ path ] once all placeholders have been replaced', function () {
                 purrl.config('pathElement', 'placeholder', [1, {}, 2, {}]);
                 purrl.placeholder(3, 4, 5, 6);
-                expect(purrl[' internal'].path).to.deep.equal(['1', '3', '2', '4', '5', '6']);
+                expect(purrl[' internal'].path).to.deep.equal([1, 3, 2, 4, 5, 6]);
             });
 
             it('should use non-matching objects as JSON string values', function () {
@@ -42,7 +43,7 @@ describe('PURRL', function () {
                     one : 'uno',
                     three : 'tres'
                 });
-                expect(purrl[' internal'].path).to.deep.equal(['1', 'uno', '2', '{"one":"uno","three":"tres"}', {}, '3', 'tres']);
+                expect(purrl[' internal'].path).to.deep.equal([1, 'uno', 2, {one : 'uno', three : 'tres'}, {}, 3, 'tres']);
             });
         });
 
@@ -53,13 +54,13 @@ describe('PURRL', function () {
                     one : 'uno',
                     three : 'tres'
                 })({two : 'dos'}, 4);
-                expect(purrl[' internal'].path).to.deep.equal(['1', 'uno', '2', 'dos', '3', 'tres', '4']);
+                expect(purrl[' internal'].path).to.deep.equal([1, 'uno', 2, 'dos', 3, 'tres', 4]);
             });
 
             it('should not affect named placeholders with primitive values', function () {
                 purrl.config('pathElement', 'placeholder', [1, {p : 'one'}, 2, {}]);
                 purrl.placeholder(3, 4, 5, 6);
-                expect(purrl[' internal'].path).to.deep.equal(['1', {p : 'one'}, '2', '3', '4', '5', '6']);
+                expect(purrl[' internal'].path).to.deep.equal([1, {p : 'one'}, 2, 3, 4, 5, 6]);
             });
         });
     });
@@ -551,7 +552,7 @@ describe('PURRL', function () {
                 describe('when the value is a non string', function () {
                     it('should add to the configuration, under the key, the value in an array', function () {
                         expect(purrl.config('pathElement', 'one', 1).config('pathElement')).to.deep.equal({
-                            one : ['1']
+                            one : [1]
                         });
                     });
                 });
@@ -574,11 +575,8 @@ describe('PURRL', function () {
 
                 describe('when the value is an object with properties but not a string [ p ] property', function () {
                     it('should add to the configuration, under the key, a the stringified value in an array', function () {
-                        expect(purrl.config('pathElement', 'obj', [
-                            {id : 'zero', toString : function () { return this.id; }},
-                            {one : 1}
-                        ]).config('pathElement')).to.deep.equal({
-                            obj : ['zero', '{"one":1}']
+                        expect(purrl.config('pathElement', 'obj', [{one : 1}]).config('pathElement')).to.deep.equal({
+                            obj : [{one : 1}]
                         });
                     });
                 });
@@ -594,7 +592,7 @@ describe('PURRL', function () {
                 describe('when the value is an array will some non-string items', function () {
                     it('should convert the non-strings to strings then add to the configuration, under the key, the array', function () {
                         expect(purrl.config('pathElement', 'me', [1, 'members', 'me']).config('pathElement')).to.deep.equal({
-                            me : ['1', 'members', 'me']
+                            me : [1, 'members', 'me']
                         });
                     });
                 });
@@ -604,8 +602,8 @@ describe('PURRL', function () {
                 it('should replace the custom path element', function () {
                     purrl.config('pathElement', 'me', 'me');
                     purrl.config('pathElement', 'me', [1, 'members', 'me']);
-                    expect(purrl.config('pathElement', 'me')).to.deep.equal(['1', 'members', 'me']);
-                    expect(purrl.me.me[' internal'].path).to.deep.equal(['1', 'members', 'me', '1', 'members', 'me']);
+                    expect(purrl.config('pathElement', 'me')).to.deep.equal([1, 'members', 'me']);
+                    expect(purrl.me.me[' internal'].path).to.deep.equal([1, 'members', 'me', 1, 'members', 'me']);
                 });
             });
 
@@ -638,7 +636,7 @@ describe('PURRL', function () {
 
                 it('should add all path elements to the internal path', function () {
                     purrl.me;
-                    expect(purrl[' internal'].path).to.deep.equal(['1', 'members', 'me']);
+                    expect(purrl[' internal'].path).to.deep.equal([1, 'members', 'me']);
                 });
             });
 
@@ -657,8 +655,8 @@ describe('PURRL', function () {
                         me : [1, 'members', 'me']
                     }).config('pathElement')).to.deep.equal({
                         cards : ['cards'],
-                        one : ['1'],
-                        me : ['1', 'members', 'me']
+                        one : [1],
+                        me : [1, 'members', 'me']
                     });
                 });
             });
@@ -1346,6 +1344,41 @@ describe('PURRL', function () {
             requestStub.restore();
         });
 
+        describe('[ beforePath ] hook', function () {
+            var beforePath;
+            beforeEach(function () {
+                beforePath = sinon.stub();
+                purrl.config('hook', 'beforePath', beforePath);
+            });
+
+            it('should be called', function () {
+                purrl(5, 4, 3, 2, 1).get();
+                expect(beforePath.callCount).to.equal(1);
+                expect(beforePath.firstCall.args[0].path).to.deep.equal([5, 4, 3, 2, 1]);
+            });
+
+            it('should send the path segments before URL encoding', function () {
+                purrl('^^^').get();
+                expect(beforePath.firstCall.args[0].path).to.deep.equal(['^^^']);
+            });
+
+            it('should allow the [ beforePath ] hook to alter the path segments', function () {
+                purrl.config('hook', 'beforePath', function (context) {
+                    context.path.push('&&&', 'test');
+                });
+                purrl('1').get();
+                expect(requestStub.firstCall.args[0].path).to.equal('/1/%26%26%26/test');
+            });
+
+            it('should allow the [ beforePath ] hook to replace the path', function () {
+                purrl.config('hook', 'beforePath', function (context) {
+                    context.path = [{test : 'object'}, 'something', 'new'];
+                });
+                purrl(1, 2, 3).get();
+                expect(requestStub.firstCall.args[0].path).to.equal('/%7B%22test%22%3A%22object%22%7D/something/new');
+            });
+        });
+
         it('should call the [ onRequest ] hook', function () {
             var onRequest = sinon.stub();
             purrl.config('hook', 'onRequest', onRequest).get();
@@ -1393,16 +1426,32 @@ describe('PURRL', function () {
             }
         });
 
-        it('should throw an error when placeholders remain in the internal [ path ]', function () {
-            purrl.config('pathElement', 'placeholder', {});
-            try {
-                purrl.placeholder.get();
-                expect(true, 'An error should have been thrown').to.be.false;
-            } catch (error) {
-                expect(error).to.be.an.instanceOf(Error);
-                expect(error.message).to.equal('Cannot send the request. Placeholders remain.');
-                expect(purrl[' internal'].path).to.deep.equal([]);
-            }
+        describe('when placeholders remain in the internal [ path ]', function () {
+            beforeEach(function () {
+                purrl.config('pathElement', 'placeholder', {});
+            });
+
+            it('should throw an error', function () {
+                try {
+                    purrl.placeholder.get();
+                    expect(true, 'An error should have been thrown').to.be.false;
+                } catch (error) {
+                    expect(error).to.be.an.instanceOf(Error);
+                    expect(error.message).to.equal('Cannot send the request. Placeholders remain.');
+                    expect(purrl[' internal'].path).to.deep.equal([]);
+                }
+            });
+
+            it('should not call the [ beforePath ] hook', function () {
+                var beforePath = sinon.stub();
+                purrl.placeholder.config('hook', 'beforePath', beforePath);
+                try {
+                    purrl.get();
+                } catch (error) {
+                    expect(error.message).to.equal('Cannot send the request. Placeholders remain.');
+                }
+                expect(beforePath.callCount).to.equal(0);
+            });
         });
 
         it('should pass a correct options object to the protocol\'s [ request() ]', function () {
@@ -1420,7 +1469,7 @@ describe('PURRL', function () {
             .config('param', 'option^:^Two', 'two two')
             .header('x-powered-by', 'PURRL')
             .param('three', 3)
-            (1, 'dos', 'tro is').get();
+            (1, 'part', {of : 'the'}, {toString : function () { return 'path'; }}).get();
 
             expect(requestStub.firstCall.args).to.deep.equal([{
                 hostname : 'example.com',
@@ -1431,7 +1480,7 @@ describe('PURRL', function () {
                     'x-powered-by' : 'PURRL'
                 },
                 method : 'GET',
-                path : '/1/dos/tro%20is?optOne=on%26%26e&option%5E%3A%5ETwo=two%20two&three=3'
+                path : '/1/part/%7B%22of%22%3A%22the%22%7D/path?optOne=on%26%26e&option%5E%3A%5ETwo=two%20two&three=3'
             }]);
         });
 
