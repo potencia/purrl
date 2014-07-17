@@ -1,6 +1,44 @@
 'use strict';
 
-var url = require('url'), PURRL;
+var url = require('url'), placeholder, PURRL;
+
+function PlaceHolder (config) {
+    if (config.p) {
+        this.p = config.p;
+    }
+}
+
+PlaceHolder.createOrPassthrough = function (value) {
+    var keyCount, str;
+    if (Object.prototype.toString.call(value) === '[object Object]') {
+        keyCount = Object.keys(value).length;
+        if (keyCount === 0 || Object.prototype.toString.call(value.p) === '[object String]') {
+            return new PlaceHolder(value);
+        }
+        str = value.toString();
+        if (str === '[object Object]') {
+            str = JSON.stringify(value);
+        }
+        return str;
+    }
+    return value.toString();
+};
+
+Object.defineProperty(PlaceHolder.prototype, 'named', {
+    configurable : false,
+    enumerable : false,
+    get : function () {
+        return this.p !== undefined;
+    }
+});
+
+Object.defineProperty(PlaceHolder.prototype, 'name', {
+    configurable : false,
+    enumerable : false,
+    get : function () {
+        return this.p;
+    }
+});
 
 function filterPort (value) { return (/^[0-9]+$/.test(value)) ? Number(value) : NaN; }
 
@@ -159,7 +197,9 @@ var I = ' internal', configurations = {
                         if (Object.getOwnPropertyDescriptor(self, key) !== undefined && !internal.pathElement.hasOwnProperty(key)) {
                             throw new Error('The pathElement [ get ] conflicts with another property.');
                         }
-                        internal.pathElement[key] = value.map(function (item) { return item.toString(); });
+                        internal.pathElement[key] = value.map(function (item) {
+                            return PlaceHolder.createOrPassthrough(item);
+                        });
                         Object.defineProperty(self, key, {
                             configurable : true,
                             enumerable : true,
@@ -399,7 +439,13 @@ function buildBasicRequestOptions (purrl, verb) {
 function buildRequestPath (purrl) {
     var pathUrl = {};
 
-    pathUrl.pathname = '/' + purrl[I].path.map(function (segment) { return encodeURIComponent(segment); }).join('/');
+    pathUrl.pathname = '/' + purrl[I].path.map(function (segment) {
+        if (segment instanceof PlaceHolder) {
+            purrl[I].path = [];
+            throw new Error('Cannot send the request. Placeholders remain.');
+        }
+        return encodeURIComponent(segment);
+    }).join('/');
     purrl[I].path = [];
 
     pathUrl.query = {};
@@ -486,12 +532,45 @@ function sendRequest (purrl, verb, body) {
     request.end();
 }
 
+placeholder = {
+    nonNamed : function (segment, index, list) {
+        if (segment instanceof PlaceHolder && !segment.named) {
+            list[index] = this.value;
+            return false;
+        }
+        return true;
+    },
+    named : function (key) {
+        return this.purrl[I].path.every(function (segment, index, list) {
+            if (segment instanceof PlaceHolder && segment.named && segment.name === key) {
+                list[index] = this.value;
+                return false;
+            }
+            return true;
+        }, {value : this.element[key]});
+    }
+};
+
 function createPurrl () {
     function purrl () {
-        var ctr, len, seg;
+        var ctr, len, element, str;
         for (ctr = 0, len = arguments.length; ctr < len; ctr++) {
-            seg = arguments[ctr].toString();
-            purrl[I].path.push(seg);
+            element = arguments[ctr];
+            if (Object.prototype.toString.call(element) === '[object Object]') {
+                if (Object.keys(element).some(placeholder.named, {purrl : purrl, element : element})) {
+                    str = element.toString();
+                    if (str === '[object Object]') {
+                        str = JSON.stringify(element);
+                    }
+                }
+            } else {
+                str = element.toString();
+            }
+            if (str !== undefined) {
+                if (purrl[I].path.every(placeholder.nonNamed, {value : str})) {
+                    purrl[I].path.push(str);
+                }
+            }
         }
         return purrl;
     }

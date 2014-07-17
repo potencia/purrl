@@ -50,7 +50,7 @@ See the [Trello API documentation](https://trello.com/docs/) for details about t
         .config('param', 'key', /* YOUR APPLICATION KEY */)
         .config('param', 'token', /* YOUR USER OAUTH TOKEN */)
         .config('pathElement', 'me', ['members', 'me'])
-        .config('pathElement', 'boards', 'boards')
+        .config('pathElement', 'board', ['boards', {}])
         .config('hook', 'onBody', function (context) { result = JSON.parse(context.body); });
 
     // Issue a GET request
@@ -62,7 +62,7 @@ See the [Trello API documentation](https://trello.com/docs/) for details about t
     // the result variable.
     // ...
 
-    purrl(1).boards(result.idBoards[0]).get();
+    purrl(1).board(result.idBoards[0]).get();
 
     // ...
     // Wait for the request to complete
@@ -88,19 +88,19 @@ Here is the same example but using the custom PURRL [REPL](http://nodejs.org/api
     ..... },
     ... pathElement : {
     ..... me : ['members', 'me'],
-    ..... boards : 'boards'
+    ..... board : ['boards', {}]
     ..... }
     ... });
     purrl> purrl(1).me.get();
     purrl> var meJson = JSON.parse(_);
-    purrl> purrl(1).boards(meJson.idBoards[0]).get();
+    purrl> purrl(1).board(meJson.idBoards[0]).get();
     purrl> var myFirstBoardJson = JSON.parse(_);
     purrl> console.log(myFirstBoardJson);
 
 A few items to note: The purrl instance is automatically instantiated for you. Special hooks are pre-registered for you that block the REPL until the
 response is complete and then return the body as if it were the return value of the call. (In reality, the body is not the actual return value so a statement
-like `purrl> var results = purrl(1).me.get();` would not set the `results` variable to the returned body (as might be expected) but would set
-`results` to `undefined`. The `_` variable would still contain the returned body.
+like `purrl> var results = purrl(1).me.get();` would not set the `results` variable to the returned body (as might be expected) but would set `results` to
+`undefined`. The `_` variable would still contain the returned body.
 
 ----------------------------------------------------------------------
 
@@ -121,8 +121,8 @@ making requests.
     // Assume purrl.config('host', 'example.com'); was called some time before
 
     purrl('follow', 'the', 'yellow', 'brick', 'road').get();
-    // This request is sent to
-    //     http://example.com/follow/the/yellow/brick/road
+      // This request is sent to
+      //     http://example.com/follow/the/yellow/brick/road
 
 After each request is sent, the path is rest to nothing.
 
@@ -131,9 +131,9 @@ After each request is sent, the path is rest to nothing.
 Adds a header key / value pair for the next request. If you want a header that is persistent, set it with the `header` configuration option (see below).
 
     purrl.header('accept', 'application/json').get();
-    // This request will have
-    //     Accept: application/json
-    // as one of its headers
+      // This request will have
+      //     Accept: application/json
+      // as one of its headers
 
 #### purrl.noHeader(key) -> purrl ####
 
@@ -148,12 +148,12 @@ Suppresses a header from being sent with the next request. If you want to perman
 
 #### purrl.param(key, value) -> purrl ####
 
-Adds a query parameter key / value pair for the next request. If you want a query parameter that is persistent, set it with the 'param' configuration option (see
-below).
+Adds a query parameter key / value pair for the next request. If you want a query parameter that is persistent, set it with the 'param' configuration option
+(see below).
 
     purrl('api').param('key', 'KEY').get();
-    // This request will have use the following path
-    //     /api?key=KEY
+      // This request will have use the following path
+      //     /api?key=KEY
 
 #### purrl.noParam(key) -> purrl ####
 
@@ -176,14 +176,14 @@ Sends an HTTP request using the verb that matches the method name. If a body is 
     // Assume purrl.config('host', 'example.com'); was called some time before
 
     purrl('api', 'accounts').get();
-    // sends an HTTP GET to
-    //     http://example.com/api/accounts
-    // with no request body
+      // sends an HTTP GET to
+      //     http://example.com/api/accounts
+      // with no request body
 
     purrl('api', 'accounts').put('er there.');
-    // sends an HTTP PUT to
-    //     http://example.com/api/accounts
-    // with 'er there.' as the request body
+      // sends an HTTP PUT to
+      //     http://example.com/api/accounts
+      // with 'er there.' as the request body
 
 The available verb methods are:
 - purrl.get([body])
@@ -213,27 +213,27 @@ When called with no arguments, all set configuration options are returned. Any o
 are not set (whether or not they have a default) will not be included in the object.
 
     purrl.config();
-    // depending on what is set might return something like this -> {
-    //     protocol : 'https',
-    //     host : 'example.com',
-    //     port : 8083,
-    //     header : {
-    //         x-powered-by : 'Potencia, Inc.'
-    //     },
-    //     hook : {
-    //         onBody : [
-    //             'function parseBodyToJson(context) { context.body = JSON.parse(context.body); }',
-    //             'function outputBody(context) { console.log(context.body); }'
-    //         ]
-    //     }
-    // }
+      // depending on what is set might return something like this -> {
+      //     protocol : 'https',
+      //     host : 'example.com',
+      //     port : 8083,
+      //     header : {
+      //         x-powered-by : 'Potencia, Inc.'
+      //     },
+      //     hook : {
+      //         onBody : [
+      //             'function parseBodyToJson(context) { context.body = JSON.parse(context.body); }',
+      //             'function outputBody(context) { console.log(context.body); }'
+      //         ]
+      //     }
+      // }
 
 ##### purrl.config(options) -> purrl #####
 
 Sets multiple options
 
-When called with a single object the properties of the object will be used to set option settings as if the `purrl.config()` method were called individually with
-each of the settings. Previously set options that are not included in the options property will not be altered.
+When called with a single object the properties of the object will be used to set option settings as if the `purrl.config()` method were called individually
+with each of the settings. Previously set options that are not included in the options property will not be altered.
 
     purrl.config({
         host : 'example.com',
@@ -271,7 +271,7 @@ Gets the option value
 When the option passed to this method is a single value option the return value is the value of the option.
 
     purrl.config('host'); // single-value option
-    // depending on what is set might return -> 'example.com'
+      // depending on what is set might return -> 'example.com'
 
 ##### purrl.config(multiValueOption) -> object #####
 
@@ -280,10 +280,10 @@ Gets all named values from a multi-value option
 When the option passed to this method is a multi-value option the return value is an object of key/value pairs for all named options that are set.
 
     purrl.config('header'); // multi-value option
-    // depending on what is set might return something like this -> {
-    //     accept : 'application/json',
-    //     x-powered-by : 'Potencia, Inc.'
-    // }
+      // depending on what is set might return something like this -> {
+      //     accept : 'application/json',
+      //     x-powered-by : 'Potencia, Inc.'
+      // }
 
 ##### purrl.config(option, mainValue[, additionalValue1, additionalValue2, ...]) -> purrl #####
 
@@ -317,7 +317,7 @@ Gets the named value from a multi-value option
 For a multi-value option, the named value is returned.
 
     purrl.config('header', 'accept');
-    // depending on what is set might return -> 'application/json'
+      // depending on what is set might return -> 'application/json'
 
 ##### purrl.config(option, name, mainValue[, additionalValue1, additionalValue2, ...]) -> purrl #####
 
@@ -327,201 +327,361 @@ For a multi-value option, the named value is set.
 
     purrl.config('header', 'accept', 'application/json');
 
-##### Configuration Options #####
+#### Configuration Options ####
+
+##### protocol #####
+
+Gets or sets the communication protocol used to make requests. Valid values are 'http' and 'https'. When setting the protocol, PURRL behind the scenes loads
+the appropriate client for use. This option is set to 'http' by default.
+
+    purrl.config('protocol', 'https');
+    purrl.config('protocol'); // returns -> 'https'
+
+##### host #####
+
+Gets or sets the host name to send requests to. Any string is accepted. This option must be set before calling any verb methods.
+
+    purrl.config('host', 'example.com');
+    purrl.config('host'); // returns -> 'example.com'
+
+##### port #####
+
+Gets or sets the TCP port to send requests to. Integers between 1 and 65535 are accepted. If this option is not set, the default port for the configured
+protocol will be used by default. Port 80 for 'http', or port 443 for 'https'.
+
+    purrl.config('port', -3); // error
+    purrl.config('port', 8080);
+    purrl.config('port'); // returns -> 8080
+
+##### header #####
+
+Gets or sets header key / value pairs. Strings are accepted for both header names and header values. Headers set using this option are persistent. They are
+added to the request header for each request sent until they are removed (see the special `removeHeader` configuration option). To set a transient header (sent
+only for the current request) use the `purrl.header()` method.
+
+    purrl.config('header', {
+        accept : 'application/json;text/xml;text/plain',
+        'transfer-encoding' : 'utf8'
+    });
+    purrl.config('header', 'content-type', 'application/json');
+    purrl.config('header');
+      // returns -> {
+      //     accept : 'application/json;text/xml;text/plain',
+      //     'content-type' : 'application/json',
+      //     'transfer-encoding' : 'utf8'
+      // }
+    purrl.config('header', 'transfer-encoding'); // returns -> 'utf8'
+
+##### removeHeader #####
+
+Removes a previously set header from the persistent header configuration. The header is identified by its name. It is *not* an error to attempt to remove a
+persistent header that is not set.
+
+    // Set a header
+    purrl.config('header', 'content-type', 'application/json');
+    purrl.config('header', 'content-type'); // returns -> 'application/json'
+
+    // Remove the header
+    purrl.config('removeHeader', 'content-type');
+    purrl.config('header', 'content-type'); // returns -> undefined
+
+    // Remove the header (again)
+    purrl.config('removeHeader', 'content-type'); // no error
+
+##### param #####
+
+Gets or sets query parameter key / value pairs. Strings are accepted for both keys and values. Query parameters set using this option are persistent. They are
+added to the query string for each request sent until they are removed (see the special `removeParam` configuration option). To set a transient query parameter
+(sent only for the current request) use the `purrl.param()` method.
+
+    purrl.config('param', {
+        key : 'WhoNeedsOne',
+        user : 'Sherlock'
+    });
+    purrl.config('param', 'token', 'OfMyRespect');
+    purrl.config('param');
+      // returns -> {
+      //     key : 'WhoNeedsOne',
+      //     token : 'OfMyRespect',
+      //     user : 'Sherlock'
+      // }
+    purrl.config('param', 'user'); // returns -> 'Sherlock'
+
+##### removeParam #####
+
+Removes a previously set query parameter from the persistent query parameter configuration. The query parameter is identified by its key. It is *not* an error
+to attempt to remove a persistent query parameter that is not set.
+
+    // Set a query parameter
+    purrl.config('param', 'user', 'Sherlock');
+    purrl.config('param', 'user'); // returns -> 'Sherlock'
+
+    // Remove the query parameter
+    purrl.config('removeParam', 'user');
+    purrl.config('param', 'user'); // returns -> undefined
+
+    // Remove the query parameter (again)
+    purrl.config('removeParam', 'user'); // no error
+
+##### pathElement #####
+
+Adds a custom path element property to the purrl object. Properties added using this configuration can be used to specify portions of the URL path for a
+request.
+
+    purrl.config('host', 'example.com');
+    purrl.config('pathElement', 'api', 'api');
+    purrl.config('pathElement', 'api'); // returns -> ['api']
+
+    purrl.get(); // Issues a GET to http://example.com
+    purrl.api.get(); // Issues a GET to http://example.com/api
+
+The pathElement name must be a valid JavaScript property name as it will be used to create a property on the purrl object. It may be the same as an existing
+pathElement property (which will result in the previous property being replaced). It cannot be the same as a property that already exists on the purrl object
+but is *not* a pathElement property.
+
+    purrl.config('host', 'example.com');
+    purrl.config('pathElement', 'account', 'account');
+    purrl.account.get(); // Issues a GET to http://example.com/account
+
+    purrl.config('pathElement', 'account', ['api', 1, 'accounts']);
+    purrl.account.get(); // Issues a GET to http://example.com/api/1/accounts
+
+    // The purrl.post() verb method cannot be replaced with a pathElement property
+    purrl.config('pathElement', 'post', ['api', 1, 'post']); // error
+
+The pathElement value can be a single value (which will be converted to a string), a placeholder object (see below), or an array. An array value can contain any
+combination of values and placeholder objects. Values in the array will be converted to strings, non-placeholder objects will be converted to their string
+representation or to JSON if no `toString()` method is defined for the object.
+
+    purrl.config('host', 'example.com');
+    purrl.config('pathElement', 'apiV1_0', ['api', 1, 0]);
+
+    purrl.apiV1_0.get();
+      // Issues a GET to http://example.com/api/1/0
+
+    purrl.config('pathElement', {
+        apiV1_1 : ['api', 1, 1],
+        people : 'people'
+    });
+
+    purrl.apiV1_1.people.get();
+      // Issues a GET to http://example.com/api/1/1/people
+
+    purrl.config('pathElement');
+      // returns -> {
+      //     apiV1_0 : ['api', '1', '0'],
+      //     apiV1_1 : ['api', '1', '1'],
+      //     people : ['people']
+
+Placeholder objects are expressed as JavaScript objects in the configuration. They can be empty (`{}`) or they can have the `p` property set to a string value
+(`{p : 'acct'}`). They are also allowed to have other properties, but these other properties will be ignored.
+
+When a placeholder is empty (`{}`) it is a generic or nameless placeholder filled by the first value passed to purrl when called as a function.
+
+    purrl.config('host', 'example.com');
+    purrl.config('pathElement', 'account', ['accounts', {}]);
+
+    purrl.account(1001).get();
+      // Issues a GET to http://example.com/accounts/1001
+
+When a placeholder has the `p` property it becomes a named placeholder. Named placeholders are filled by the property value of an object that has a property
+matching the placeholder name.
+
+    purrl.config('host', 'example.com');
+    purrl.config('pathElement', {
+        account : ['accounts', {p : 'acct'}],
+        user : ['users', {p : 'usr'}]
+    });
+
+    purrl.account({acct : 1001}).get();
+      // Issues a GET to http://example.com/accounts/1001
+
+    purrl.account.user({
+        acct : 1001,
+        usr : 500
+    }).get();
+      // Issues a GET to http://example.com/accounts/1001/users/500
+
+All placeholders must be filled with real values before a verb method is called otherwise an error will be thrown.
+
+    purrl.config('host', 'example.com');
+    purrl.config('pathElement', 'owner', 'owner');
+    purrl.config('pathElement', 'account', 'accounts'); // Without a placeholder
+
+    purrl.account.owner(1001).get();
+      // Issues a GET to http://example.com/accounts/owner/1001
+      // (the value is appended to the end of the path)
+
+    purrl.account.get();
+      // Issues a GET to http://example.com/accounts
+
+    purrl.config('pathElement', 'account', ['accounts', {}]); // With a placeholder
+
+    purrl.account.owner(1001).get();
+      // Issues a GET to http://example.com/accounts/1001/owner
+      // (the value replaces the placeholder)
+
+    purrl.account.get();
+      // error (there was no value supplied to fill the placeholder)
+
+    // With a named placeholder
+    purrl.config('pathElement', 'account', ['accounts', {p : 'acct'}]);
+
+    purrl.account({acct : 1001}).get();
+      // Issues a GET to http://example.com/accounts/1001
+      // (the property value replaces the matching named placeholder)
+
+    purrl.account(1001).get();
+      // error (there was no named value supplied to fill the named placeholder)
+
+##### removePathElement #####
+
+Removes a custom path element from the purrl object. The custom path element is identified by its name. It is *not* an error to attempt to remove a custom path
+element that is not set. If a valid property name that is not a custom path element property is supplied, the removal request is ignored.
+
+    // Set a custom path element
+    purrl.config('host', 'example.com');
+    purrl.config('pathElement', 'accounts', 'accounts');
+    purrl.config('pathElement', 'accounts'); // returns -> ['accounts']
+
+    purrl.accounts.get(); // Issues a GET to http://example.com/accounts
+
+    // Remove the custom path element
+    purrl.config('removePathElement', 'accounts');
+    purrl.config('pathElement', 'accounts'); // returns -> undefined
+
+    purrl.accounts.get();
+      // error (accounts is undefined, cannot call get() method of undefined)
+
+    // Remove the custom path element (again)
+    purrl.config('removePathElement', 'accounts'); // no error
+
+    // Incorrect name is supplied
+    purrl.config('removePathElement', 'patch');
+      // ignored (the patch() verb method is left unharmed)
+
+##### hook #####
+
+Hooks are stored function chains that are called at predetermined times during the execution of an HTTP request. For security reasons, they are not allowed to
+be represented in JSON form. As a result of this, when setting a `hook` option, a function or array of functions must be provided, but when getting the value of
+a `hook` option, the string representation of each function in the chain will be returned. The hook option sets the entire function chain of the named hook, any
+previously set values are removed. See the special `addHook` and `removeHook` configuration options for the ability to append, insert, or remove specific
+functions from a hook chain. See the Available Hooks section below for a list of the hooks that are supported.
+
+    purrl.config('hook', 'onBody', function onBody1() {});
+      // Sets onBody1 as the sole function in the chain for the onBody hook
+
+    purrl.config('hook', 'onBody');
+      // returns -> ['function onBody1() {}'] (Note: this is a string value)
+
+    purrl.config('hook', 'onBody', [function onBody2() {}, function onBody3() {}]);
+      // Removes any previously set functions assigned to the onBody hook
+      // and sets onBody2 and onBody3 in that order.
+
+    purrl.config('hook', 'onBody');
+      // returns -> [
+      //     'function onBody2() {}',
+      //     'function onBody3() {}'
+      // ] (Note: this is an array of string values)
+
+    purrl.config('hook', {
+        onBody : function onBody4() {},
+        onData : [
+            function onData1() {},
+            function onData2() {}
+        ]
+    });
+
+    purrl.config('hook');
+      // returns -> {
+      //     onBody : ['function onBody4() {}'],
+      //     onData : [
+      //         'function onData1() {}',
+      //         'function onData2() {}'
+      //     ]
+      // }
+
+##### addHook #####
+
+Adds a hook function into the named hook chain. When an index argument is *not* provided the function is appended to the end of the chain, when an index
+argument is provided the function is inserted at that position. See the Available Hooks section below for a list of the hooks that are supported.
+
+    purrl.config('hook', 'onBody', function initialOnBody() {});
+    purrl.config('hook', 'onBody'); // returns -> ['function initialOnBody() {}']
+
+    purrl.config('addHook', 'onBody', function appendedOnBody() {});
+    purrl.config('hook', 'onBody');
+      // returns -> [
+      //     'function initialOnBody() {}',
+      //     'function appendedOnBody() {}'
+      // ]
+
+    purrl.config('addHook', 'onBody', function insertedOnBody() {}, 1);
+    purrl.config('hook', 'onBody');
+      // returns -> [
+      //     'function initialOnBody() {}',
+      //     'function insertedOnBody() {}',
+      //     'function appendedOnBody() {}'
+      // ]
+
+##### removeHook #####
+
+Removes a hook function at a given index from a the named hook chain.
+
+    // Set functions in the onBody hook chain
+    purrl.config('hook', 'onBody', [function onBody1() {}, function onBody2() {}]);
+    purrl.config('hook', 'onBody');
+      // returns -> [
+      //     'function onBody1() {}',
+      //     'function onBody2() {}'
+      // ]
+
+    // Remove the first function
+    purrl.config('removeHook', 'onBody', 0); // -> returns [Function: onBody1] (not a string)
+    purrl.config('hook', 'onBody'); // returns -> ['function onBody2() {}']
+
+    // Remove the first function
+    purrl.config('removeHook', 'onBody', -1); // -> returns [Function: onBody2] (not a string)
+    purrl.config('hook', 'onBody'); // returns -> []
+
+Unlike most of the other configuration options, `removeHook` returns the actual function that was removed, not a string representation. This is useful if you
+desire to reorder the functions in a hook's list.
+
+    // Set functions in the onBody hook chain
+    purrl.config('hook', 'onBody', [function onBody1() {}, function onBody2() {}]);
+    purrl.config('hook', 'onBody');
+      // returns -> [
+      //     'function onBody1() {}',
+      //     'function onBody2() {}'
+      // ]
+
+    // Reorder the hook chain
+    purrl.config('addHook', 'onBody', purrl.config('removeHook', 'onBody', -1), 0);
+    purrl.config('hook', 'onBody');
+      // returns -> [
+      //     'function onBody2() {}',
+      //     'function onBody1() {}'
+      // ]
+
+#### Configuration Option Quick Reference ####
 
 <table>
-    <thead>
-        <td><b>Option</b></td>
-        <td><b>Type</b></td>
-        <td><b>Access</b></td>
-        <td><b>Required</b></td>
-        <td><b>Valid Names</b></td>
-        <td><b>Valid Values</b></td>
-    </thead>
-    <tr>
-        <td><b>protocol</b></td>
-        <td>string</td>
-        <td>read/write</td>
-        <td>true, preset to 'http'</td>
-        <td></td>
-        <td>http, https</td>
-    </tr>
-    <tr>
-        <td><b>host</b></td>
-        <td>string</td>
-        <td>read/write</td>
-        <td>true</td>
-        <td></td>
-        <td></td>
-    </tr>
-    <tr>
-        <td><b>port</b></td>
-        <td>integer</td>
-        <td>read/write</td>
-        <td></td>
-        <td></td>
-        <td>1 - 65535</td>
-    </tr>
-    <tr>
-        <td><b>header</b></td>
-        <td>multi-value</td>
-        <td>read/write</td>
-        <td></td>
-        <td>any name</td>
-        <td>string values</td>
-    </tr>
-    <tr>
-        <td></td>
-        <td colspan="5">
-            Values set in the header option are persistent, they are added to the request header for each request sent until they are removed (see the special
-            <code>removeHeader</code> configuration option). To set a header value once for the current request use the <code>purrl.header()</code> method.
-        </td>
-    </tr>
-    <tr>
-        <td><b>removeHeader</b></td>
-        <td>special</td>
-        <td>write-only</td>
-        <td></td>
-        <td></td>
-        <td>header keys</td>
-    </tr>
-    <tr>
-        <td></td>
-        <td colspan="5">
-            Removes the header matching the provided key from the object containing the persistent headers.
-        </td>
-    </tr>
-    <tr>
-        <td><b>param</b></td>
-        <td>multi-value</td>
-        <td>read/write</td>
-        <td></td>
-        <td>any name</td>
-        <td>string values</td>
-    </tr>
-    <tr>
-        <td></td>
-        <td colspan="5">
-            Values set in the param option are persistent, they are added to the query string for each request sent until they are removed (see the special
-            <code>removeParam</code> configuration option). To set a query parameter once for the current request use the <code>purrl.param()</code> method.
-        </td>
-    </tr>
-    <tr>
-        <td><b>removeParam</b></td>
-        <td>special</td>
-        <td>write-only</td>
-        <td></td>
-        <td></td>
-        <td>query parameter keys</td>
-    </tr>
-    <tr>
-        <td></td>
-        <td colspan="5">
-            Removes the parameter matching the provided key from the object containing the persistent query parameters.
-        </td>
-    </tr>
-    <tr>
-        <td><b>pathElement</b></td>
-        <td>multi-value</td>
-        <td>read/write</td>
-        <td></td>
-        <td>Any valid, non-conflicting property name</td>
-        <td>value or array of values</td>
-    </tr>
-    <tr>
-        <td></td>
-        <td colspan="5">
-            <p>Adds a path element property that can be used to specify portions of the URL path.</p>
-            <pre>purrl.config('pathElement', 'boards', 'boards');</pre>
-            <p>adds the <code>boards</code> property to the purrl object</p>
-            <pre>purrl.config('pathElement', 'my', [1, 'members', 'my']);</pre>
-            <p>adds the <code>my</code> property to the purrl object</p>
-            <p>After these two statements the following is possible:</p>
-            <pre>purrl.my.boards.get();
-// Sends a GET request to the URL /1/members/my/boards</pre>
-            <p>Any valid property name can be used, but it cannot overwrite an already existing property (that is not a path element property)</p>
-            <pre>purrl.config('pathElement', 'get', ['go', 'and', 'get', 'it']);</pre>
-            <p>fails because the <code>get()</code> verb method already exists on the purrl object.</p>
-        </td>
-    </tr>
-    <tr>
-        <td><b>removePathElement</b></td>
-        <td>special</td>
-        <td>write-only</td>
-        <td></td>
-        <td></td>
-        <td>path element property names</td>
-    </tr>
-    <tr>
-        <td></td>
-        <td colspan="5">
-            Removes the path element property matching the provided key from the purrl object and from the configuration.
-        </td>
-    </tr>
-    <tr>
-        <td><b>hook</b></td>
-        <td>multi-value</td>
-        <td>read/write</td>
-        <td></td>
-        <td>See the Available Hooks section below</td>
-        <td>function or array of functions</td>
-    </tr>
-    <tr>
-        <td></td>
-        <td colspan="5">
-            <p>
-                Hooks are stored function chains that are called at predetermined times during the execution of an HTTP request. For security reasons, they are
-                not allowed to be represented in JSON form. As a result of this, when setting a `hook` option, a function or array of functions must be
-                provided, but when getting the value of a `hook` option, the string representation of each function in the chain will be returned.
-            </p>
-            <p>
-                The hook option is to be used to set the entire function chain of the named hook.
-                <code>purrl.config('hook', 'onBody', function onBody1() {})</code> sets <code>onBody1</code> as the sole function in the chain for the
-                <code>onBody</code> hook. This replaces any previously set hooks. Likewise,
-                <code>purrl.config('hook', 'onBody', [function onBody2() {}, function onBody3() {}])</code> removes any previously set functions assigned to the
-                <code>onBody</code> hook and sets <code>onBody2</code> and <code>onBody3</code> in that order. See the special <code>addHook</code> and
-                <code>removeHook</code> configuration options for the ability to append, insert, or remove specific functions from a hook chain.
-            </p>
-        </td>
-    </tr>
-    <tr>
-        <td><b>addHook</b></td>
-        <td>special</td>
-        <td>write-only</td>
-        <td></td>
-        <td>See the Available Hooks section below</td>
-        <td>function</td>
-    </tr>
-    <tr>
-        <td></td>
-        <td colspan="5">
-            <p>
-                This option is used to append a function to (when no index is provided) or insert a function into (when an index is provided) the array of
-                functions for a named hook.
-            </p>
-            <pre>purrl.config('addHook', 'onBody', function appendedOnBody () {});</pre>
-            <p>Appends the <code>appendedOnBody</code> function to the end of the array for the <code>onBody</code> hook</p>
-            <pre>purrl.config('addHook', 'onBody', function insertedOnBody () {}, 2);</pre>
-            <p>Inserts the <code>insertedOnBody</code> function at index 2 of of the array for the <code>onBody</code> hook</p>
-        </td>
-    </tr>
-    <tr>
-        <td><b>removeHook</b></td>
-        <td>special</td>
-        <td>write-only</td>
-        <td></td>
-        <td>See the Available Hooks section below</td>
-        <td>index</td>
-    </tr>
-    <tr>
-        <td></td>
-        <td colspan="5">
-            <p>This option is used to remove a function from the array of functions for a named hook.</p>
-            <pre>purrl.config('removeHook', 'onBody', 1);</pre>
-            <p>Removes the function at index 1 of the array for the <code>onBody</code> hook. This also returns the actual function (not a string
-            representation) that was removed. This is useful if you desire to reorder the functions in a hook's list.</p>
-        </td>
-    </tr>
+    <thead><td><b>Option</b></td><td><b>Type</b></td><td><b>Access</b></td><td><b>Valid Names</b></td><td><b>Valid Values</b></td>
+           <td><b>Required</b></td></thead>
+    <tr><td><b>protocol</b></td><td>string</td><td>read/write</td><td></td><td>http, https</td><td>true, preset to 'http'</td></tr>
+    <tr><td><b>host</b></td><td>string</td><td>read/write</td><td></td><td></td><td>true</td></tr>
+    <tr><td><b>port</b></td><td>integer</td><td>read/write</td><td></td><td>1 - 65535</td><td></td></tr>
+    <tr><td><b>header</b></td><td>multi-value</td><td>read/write</td><td>any name</td><td>string values</td><td></td></tr>
+    <tr><td><b>removeHeader</b></td><td>special</td><td>write-only</td><td></td><td>header keys</td><td></td></tr>
+    <tr><td><b>param</b></td><td>multi-value</td><td>read/write</td><td>any name</td><td>string values</td><td></td></tr>
+    <tr><td><b>removeParam</b></td><td>special</td><td>write-only</td><td></td><td>query parameter keys</td><td></td></tr>
+    <tr><td><b>pathElement</b></td><td>multi-value</td><td>read/write</td><td>Any valid, non-conflicting property name</td>
+        <td>value, placeholder or array of values and placeholders</td><td></td></tr>
+    <tr><td><b>removePathElement</b></td><td>special</td><td>write-only</td><td></td><td>path element property names</td><td></td></tr>
+    <tr><td><b>hook</b></td><td>multi-value</td><td>read/write</td><td>See the Available Hooks section below</td><td>function or array of functions</td>
+        <td></td></tr>
+    <tr><td><b>addHook</b></td><td>special</td><td>write-only</td><td>See the Available Hooks section below</td><td>function, optional index</td><td></td></tr>
+    <tr><td><b>removeHook</b></td><td>special</td><td>write-only</td><td>See the Available Hooks section below</td><td>index</td><td></td></tr>
 </table>
 
 ### Hooks ###
@@ -600,11 +760,9 @@ Special Context Data:
 
 `data` : The data passed to the response's `data` event callback. Any alterations to this property will be reflected in the resulting response body.
 
-    function (context) {
-        context.data = context.data.toUpperCase();
-    }
-    // If this function is part fo the onData hook chain, all
-    // text in the response body will be force to upper case
+    function (context) { context.data = context.data.toUpperCase(); }
+      // If this function is part fo the onData hook chain, all
+      // text in the response body will be force to upper case
 
 ##### onBody #####
 

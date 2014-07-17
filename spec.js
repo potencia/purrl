@@ -16,8 +16,51 @@ describe('PURRL', function () {
         });
 
         it('should append each value as a string to the internal [ path ] array', function () {
-            purrl(1, 'part', 'of', 'the', {toString : function () { return 'path'; }});
-            expect(purrl[' internal'].path).to.deep.equal(['1', 'part', 'of', 'the', 'path']);
+            purrl(1, 'part', {of : 'the'}, {toString : function () { return 'path'; }});
+            expect(purrl[' internal'].path).to.deep.equal(['1', 'part', '{"of":"the"}', 'path']);
+        });
+
+        describe('when the internal [ path ] contains non-named placeholders', function () {
+            it('should replace each placeholder starting from left with each passed value', function () {
+                purrl.config('pathElement', 'placeholder', [1, {}, 2, {}]);
+                purrl.placeholder(3, 4);
+                expect(purrl[' internal'].path).to.deep.equal(['1', '3', '2', '4']);
+            });
+
+            it('should append each value as a string to the end of the internal [ path ] once all placeholders have been replaced', function () {
+                purrl.config('pathElement', 'placeholder', [1, {}, 2, {}]);
+                purrl.placeholder(3, 4, 5, 6);
+                expect(purrl[' internal'].path).to.deep.equal(['1', '3', '2', '4', '5', '6']);
+            });
+
+            it('should use non-matching objects as JSON string values', function () {
+                purrl.config('pathElement', 'placeholder', [1, {p : 'one'}, 2, {}, {}, 3, {p : 'three'}]);
+                purrl.placeholder({
+                    one : 'uno',
+                    three : 'tres'
+                })({
+                    one : 'uno',
+                    three : 'tres'
+                });
+                expect(purrl[' internal'].path).to.deep.equal(['1', 'uno', '2', '{"one":"uno","three":"tres"}', {}, '3', 'tres']);
+            });
+        });
+
+        describe('when the internal [ path ] contains named placeholders', function () {
+            it('should replace match each named placeholder with the property in a values object', function () {
+                purrl.config('pathElement', 'placeholder', [1, {p : 'one'}, 2, {p : 'two'}, 3, {p : 'three'}]);
+                purrl.placeholder({
+                    one : 'uno',
+                    three : 'tres'
+                })({two : 'dos'}, 4);
+                expect(purrl[' internal'].path).to.deep.equal(['1', 'uno', '2', 'dos', '3', 'tres', '4']);
+            });
+
+            it('should not affect named placeholders with primitive values', function () {
+                purrl.config('pathElement', 'placeholder', [1, {p : 'one'}, 2, {}]);
+                purrl.placeholder(3, 4, 5, 6);
+                expect(purrl[' internal'].path).to.deep.equal(['1', {p : 'one'}, '2', '3', '4', '5', '6']);
+            });
         });
     });
 
@@ -509,6 +552,33 @@ describe('PURRL', function () {
                     it('should add to the configuration, under the key, the value in an array', function () {
                         expect(purrl.config('pathElement', 'one', 1).config('pathElement')).to.deep.equal({
                             one : ['1']
+                        });
+                    });
+                });
+
+                describe('when the value is an empty object', function () {
+                    it('should add to the configuration, under the key, a placeholder value in an array', function () {
+                        expect(purrl.config('pathElement', 'placeholder', {}).config('pathElement')).to.deep.equal({
+                            placeholder : [{}]
+                        });
+                    });
+                });
+
+                describe('when the value is an object with a string [ p ] property', function () {
+                    it('should add to the configuration, under the key, a placeholder value in an array', function () {
+                        expect(purrl.config('pathElement', 'card', {p : 'card'}).config('pathElement')).to.deep.equal({
+                            card : [{p : 'card'}]
+                        });
+                    });
+                });
+
+                describe('when the value is an object with properties but not a string [ p ] property', function () {
+                    it('should add to the configuration, under the key, a the stringified value in an array', function () {
+                        expect(purrl.config('pathElement', 'obj', [
+                            {id : 'zero', toString : function () { return this.id; }},
+                            {one : 1}
+                        ]).config('pathElement')).to.deep.equal({
+                            obj : ['zero', '{"one":1}']
                         });
                     });
                 });
@@ -1319,6 +1389,18 @@ describe('PURRL', function () {
             } catch (error) {
                 expect(error).to.be.an.instanceOf(Error);
                 expect(error.message).to.equal('Cannot send the request. The host is not configured.');
+                expect(purrl[' internal'].path).to.deep.equal([]);
+            }
+        });
+
+        it('should throw an error when placeholders remain in the internal [ path ]', function () {
+            purrl.config('pathElement', 'placeholder', {});
+            try {
+                purrl.placeholder.get();
+                expect(true, 'An error should have been thrown').to.be.false;
+            } catch (error) {
+                expect(error).to.be.an.instanceOf(Error);
+                expect(error.message).to.equal('Cannot send the request. Placeholders remain.');
                 expect(purrl[' internal'].path).to.deep.equal([]);
             }
         });
