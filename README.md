@@ -177,7 +177,8 @@ configuration option (see below). This will also suppress a query parameter prev
 
 #### purrl.{verb}() ####
 
-Sends an HTTP request using the verb that matches the method name. If a body is supplied, the body is sent as the request body.
+Sends an HTTP request using the verb that matches the method name. If a body is supplied, the body is sent as the request body. The path, transient query
+parameters and transient headers are all cleared upon calling a verb method.
 
     // Assume purrl.config('host', 'example.com'); was called some time before
 
@@ -197,6 +198,24 @@ The available verb methods are:
 - purrl.put([body])
 - purrl.patch([body])
 - purrl.delete([body])
+
+#### purrl.toUrl() ####
+
+Returns the URL that would have been used for a request if a verb method had been called. The path, transient query parameters and transient headers are all
+cleared upon calling `purrl.toUrl()` as if a verb method had been called, but no request is sent.
+
+    // Assume purrl.config('host', 'example.com'); was called some time
+    // before and that the protocol is set to 'http'
+
+    purrl('api').header('content-type', 'application/json').param('key', 'value').toUrl();
+      // returns -> 'http://example.com/api?key=value'
+
+    purrl.get();
+      // Issues a GET request to http://example.com
+      // without the header 'Content-Type'
+
+    purrl.config('port', 8080)('api').toUrl();
+      // returns -> 'http://example.com:8080/api'
 
 #### purrl.config(varArgs) ####
 
@@ -338,10 +357,25 @@ For a multi-value option, the named value is set.
 ##### protocol #####
 
 Gets or sets the communication protocol used to make requests. Valid values are 'http' and 'https'. When setting the protocol, PURRL behind the scenes loads
-the appropriate client for use. This option is set to 'http' by default.
+the appropriate client for use. This option is set to 'http' by default. When the protocol is set, any previous configuration of the port is undone so that if
+it is not set in the same request or a later request the protocol's default port will be used.
 
     purrl.config('protocol', 'https');
     purrl.config('protocol'); // returns -> 'https'
+
+    purrl.config({
+        host : 'example.com',
+        port : 8080
+    }).config('protocol', 'http').toUrl();
+      // returns -> http://example.com (default port 80 is not shown in the URL);
+    purrl.config('port'); // returns -> undefined
+
+    purrl.config({
+        port : 8443,
+        protocol : 'https'
+    }).toUrl();
+      // returns -> https://example.com:8443
+    purrl.config('port'); // returns -> 8443
 
 ##### host #####
 

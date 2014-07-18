@@ -194,6 +194,27 @@ describe('PURRL', function () {
                 it('should update the configuration', function () {
                     expect(purrl.config('protocol', 'https').config('protocol')).to.equal('https');
                 });
+
+                it('should clear the [ port ] configuration', function () {
+                    expect(purrl.config('port', 80).config('protocol', 'https').config('port')).to.be.undefined;
+                });
+            });
+
+            describe('when set simultaneously with [ port ]', function () {
+                it('should not reset port to the default', function () {
+                    expect(purrl.config({port : 8443, protocol : 'https'}).config()).to.deep.equal({
+                        protocol : 'https',
+                        port : 8443
+                    });
+                });
+
+                it('should update the configuration', function () {
+                    expect(purrl.config('protocol', 'https').config('protocol')).to.equal('https');
+                });
+
+                it('should clear the [ port ] configuration', function () {
+                    expect(purrl.config('port', 80).config('protocol', 'https').config('port')).to.be.undefined;
+                });
             });
         });
 
@@ -1328,6 +1349,165 @@ describe('PURRL', function () {
         });
     });
 
+    describe('.toUrl()', function () {
+        beforeEach(function () {
+            purrl.config({
+                protocol : 'https',
+                host : 'example.com'
+            });
+        });
+
+        it('should add the configured protocol at the start of the URL', function () {
+            expect(purrl.toUrl().indexOf('https')).to.equal(0);
+        });
+
+        it('should add the configured host to the URL', function () {
+            expect(purrl.toUrl()).to.equal('https://example.com');
+        });
+
+        it('should add the configured port to the URL if it is set', function () {
+            purrl.config('port', 8080);
+            expect(purrl.toUrl()).to.equal('https://example.com:8080');
+            expect(purrl('api').toUrl()).to.equal('https://example.com:8080/api');
+        });
+
+        it('should clear the internal [ path ] array', function () {
+            purrl('started', 'the', 'part').toUrl();
+            expect(purrl[' internal'].path).to.deep.equal([]);
+        });
+
+        it('should clear the internal [ requestParam ] array', function () {
+            purrl[' internal'].requestParam.key = 'VALUE';
+            purrl.toUrl();
+            expect(purrl[' internal'].requestParam).to.deep.equal({});
+        });
+
+        it('should clear the internal [ requestHeader ] array', function () {
+            purrl[' internal'].requestHeader.accept = 'application/json';
+            purrl.toUrl();
+            expect(purrl[' internal'].requestHeader).to.deep.equal({});
+        });
+
+        it('should throw an error when [ host ] is not configured', function () {
+            delete purrl[' internal'].host;
+            try {
+                purrl(1).toUrl();
+                expect(true, 'An error should have been thrown').to.be.false;
+            } catch (error) {
+                expect(error).to.be.an.instanceOf(Error);
+                expect(error.message).to.equal('Cannot generate a URL. The host is not configured.');
+                expect(purrl[' internal'].path).to.deep.equal([]);
+            }
+        });
+
+        describe('when placeholders remain in the internal [ path ]', function () {
+            beforeEach(function () {
+                purrl.config('pathElement', 'placeholder', {});
+            });
+
+            it('should throw an error', function () {
+                try {
+                    purrl.placeholder.toUrl();
+                    expect(true, 'An error should have been thrown').to.be.false;
+                } catch (error) {
+                    expect(error).to.be.an.instanceOf(Error);
+                    expect(error.message).to.equal('Cannot generate the URL path. Placeholders remain.');
+                    expect(purrl[' internal'].path).to.deep.equal([]);
+                }
+            });
+
+            it('should not call the [ beforePath ] hook', function () {
+                var beforePath = sinon.stub();
+                purrl.placeholder.config('hook', 'beforePath', beforePath);
+                try {
+                    purrl.toUrl();
+                } catch (error) {
+                    expect(error.message).to.equal('Cannot generate the URL path. Placeholders remain.');
+                }
+                expect(beforePath.callCount).to.equal(0);
+            });
+        });
+
+        describe('differs from sending a request', function () {
+            var requestStub, beforeRequest;
+            beforeEach(function () {
+                requestStub = sinon.stub(require('https'), 'request');
+                beforeRequest = sinon.stub();
+                purrl.config('hook', 'beforeRequest', beforeRequest);
+            });
+
+            afterEach(function () {
+                requestStub.restore();
+            });
+
+            it('should not invoke the [ beforeRequest ] hook', function () {
+                purrl.toUrl();
+                expect(beforeRequest.callCount).to.equal(0);
+            });
+
+            it('should not call the protocol\'s [ request() ]', function () {
+                purrl.toUrl();
+                expect(requestStub.callCount).to.equal(0);
+            });
+        });
+
+        describe('[ beforePath ] hook', function () {
+            var beforePath;
+            beforeEach(function () {
+                beforePath = sinon.stub();
+                purrl.config('hook', 'beforePath', beforePath);
+            });
+
+            it('should be called', function () {
+                purrl(5, 4, 3, 2, 1).toUrl();
+                expect(beforePath.callCount).to.equal(1);
+                expect(beforePath.firstCall.args[0].path).to.deep.equal([5, 4, 3, 2, 1]);
+            });
+
+            it('should send the path segments before URL encoding', function () {
+                purrl('^^^').toUrl();
+                expect(beforePath.firstCall.args[0].path).to.deep.equal(['^^^']);
+            });
+
+            it('should allow the [ beforePath ] hook to alter the path segments', function () {
+                purrl.config('hook', 'beforePath', function (context) {
+                    context.path.push('&&&', 'test');
+                });
+                expect(purrl('1').toUrl()).to.equal('https://example.com/1/%26%26%26/test');
+            });
+
+            it('should allow the [ beforePath ] hook to replace the path', function () {
+                purrl.config('hook', 'beforePath', function (context) {
+                    context.path = [{test : 'object'}, 'something', 'new'];
+                });
+                expect(purrl(1, 2, 3).toUrl()).to.equal('https://example.com/%7B%22test%22%3A%22object%22%7D/something/new');
+            });
+        });
+
+        it('should build a correct URL', function () {
+            purrl.config('param', {
+                optOne : 'on&&e'
+            })
+            .config('param', 'option^:^Two', 'two two');
+
+            expect(purrl.param('three', 3)(1, 'part', {of : 'the'}, {toString : function () { return 'path'; }}).toUrl())
+            .to.equal('https://example.com/1/part/%7B%22of%22%3A%22the%22%7D/path?optOne=on%26%26e&option%5E%3A%5ETwo=two%20two&three=3');
+        });
+
+        describe('when a [ key ] is set to [ undefined ] in [ requestParam ]', function () {
+            it('should suppress that value if it is set in [ param ]', function () {
+                purrl.config({
+                    host : 'example.com',
+                    param : {
+                        key : 'KEY',
+                        token : 'TOKEN'
+                    }
+                });
+                expect(purrl.noParam('key')('api').toUrl()).to.equal('https://example.com/api?token=TOKEN');
+            });
+        });
+    });
+
     describe('when sending a request', function () {
         var requestStub, requestObject;
         beforeEach(function () {
@@ -1344,57 +1524,11 @@ describe('PURRL', function () {
             requestStub.restore();
         });
 
-        describe('[ beforePath ] hook', function () {
-            var beforePath;
-            beforeEach(function () {
-                beforePath = sinon.stub();
-                purrl.config('hook', 'beforePath', beforePath);
-            });
-
-            it('should be called', function () {
-                purrl(5, 4, 3, 2, 1).get();
-                expect(beforePath.callCount).to.equal(1);
-                expect(beforePath.firstCall.args[0].path).to.deep.equal([5, 4, 3, 2, 1]);
-            });
-
-            it('should send the path segments before URL encoding', function () {
-                purrl('^^^').get();
-                expect(beforePath.firstCall.args[0].path).to.deep.equal(['^^^']);
-            });
-
-            it('should allow the [ beforePath ] hook to alter the path segments', function () {
-                purrl.config('hook', 'beforePath', function (context) {
-                    context.path.push('&&&', 'test');
-                });
-                purrl('1').get();
-                expect(requestStub.firstCall.args[0].path).to.equal('/1/%26%26%26/test');
-            });
-
-            it('should allow the [ beforePath ] hook to replace the path', function () {
-                purrl.config('hook', 'beforePath', function (context) {
-                    context.path = [{test : 'object'}, 'something', 'new'];
-                });
-                purrl(1, 2, 3).get();
-                expect(requestStub.firstCall.args[0].path).to.equal('/%7B%22test%22%3A%22object%22%7D/something/new');
-            });
-        });
-
         it('should call the [ onRequest ] hook', function () {
             var onRequest = sinon.stub();
             purrl.config('hook', 'onRequest', onRequest).get();
             expect(onRequest.callCount).to.equal(1);
             expect(onRequest.firstCall.args[0].request).to.equal(requestObject);
-        });
-
-        it('should clear the internal [ path ] array', function () {
-            purrl('started', 'the', 'part').get();
-            expect(purrl[' internal'].path).to.deep.equal([]);
-        });
-
-        it('should clear the internal [ requestParam ] array', function () {
-            purrl[' internal'].requestParam.key = 'VALUE';
-            purrl.get();
-            expect(purrl[' internal'].requestParam).to.deep.equal({});
         });
 
         it('should clear the internal [ requestHeader ] array', function () {
@@ -1424,34 +1558,6 @@ describe('PURRL', function () {
                 expect(error.message).to.equal('Cannot send the request. The host is not configured.');
                 expect(purrl[' internal'].path).to.deep.equal([]);
             }
-        });
-
-        describe('when placeholders remain in the internal [ path ]', function () {
-            beforeEach(function () {
-                purrl.config('pathElement', 'placeholder', {});
-            });
-
-            it('should throw an error', function () {
-                try {
-                    purrl.placeholder.get();
-                    expect(true, 'An error should have been thrown').to.be.false;
-                } catch (error) {
-                    expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to.equal('Cannot send the request. Placeholders remain.');
-                    expect(purrl[' internal'].path).to.deep.equal([]);
-                }
-            });
-
-            it('should not call the [ beforePath ] hook', function () {
-                var beforePath = sinon.stub();
-                purrl.placeholder.config('hook', 'beforePath', beforePath);
-                try {
-                    purrl.get();
-                } catch (error) {
-                    expect(error.message).to.equal('Cannot send the request. Placeholders remain.');
-                }
-                expect(beforePath.callCount).to.equal(0);
-            });
         });
 
         it('should pass a correct options object to the protocol\'s [ request() ]', function () {
@@ -1500,24 +1606,6 @@ describe('PURRL', function () {
                     },
                     method : 'GET',
                     path : '/'
-                }]);
-            });
-        });
-
-        describe('when a [ key ] is set to [ undefined ] in [ requestParam ]', function () {
-            it('should suppress that value if it is set in [ param ]', function () {
-                purrl.config({
-                    host : 'example.com',
-                    param : {
-                        key : 'KEY',
-                        token : 'TOKEN'
-                    }
-                }).noParam('key')('api').get();
-                expect(requestStub.firstCall.args).to.deep.equal([{
-                    hostname : 'example.com',
-                    headers : {},
-                    method : 'GET',
-                    path : '/api?token=TOKEN'
                 }]);
             });
         });

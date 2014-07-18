@@ -72,6 +72,7 @@ var I = ' internal', configurations = {
         if (protocol.supported.indexOf(name) === -1) {
             throw new Error('The [ ' + name + ' ] protocol is not supported.');
         }
+        delete this.port;
         this.protocol = {
             name : name,
             client : require(name)
@@ -381,8 +382,13 @@ function config (purrl, option) {
             throw new Error('The configuration option [ ' + option + ' ] is not supported.');
         }
         case '[object Object]': {
+            if (option.protocol) {
+                purrl.config('protocol', option.protocol);
+            }
             Object.keys(option).forEach(function (name) {
-                purrl.config(name, option[name]);
+                if (name !== 'protocol') {
+                    purrl.config(name, option[name]);
+                }
             });
             return purrl;
         }
@@ -437,7 +443,7 @@ function buildRequestPath (purrl) {
     try {
         path = purrl[I].path.map(function (segment) {
             if (segment instanceof PlaceHolder) {
-                throw new Error('Cannot send the request. Placeholders remain.');
+                throw new Error('Cannot generate the URL path. Placeholders remain.');
             }
             return segment;
         });
@@ -445,7 +451,7 @@ function buildRequestPath (purrl) {
         purrl[I].path = [];
     }
 
-    pathUrl.pathname = '/' + PURRL.hook(purrl, 'beforePath', {path : path}).path.map(function (segment) {
+    pathUrl.pathname = PURRL.hook(purrl, 'beforePath', {path : path}).path.map(function (segment) {
         var toEncode = segment.toString();
         if (toEncode === '[object Object]') {
             toEncode = JSON.stringify(segment);
@@ -491,13 +497,38 @@ function buildRequestHeaders (purrl, withBody) {
     return header;
 }
 
+function buildUrl (purrl) {
+    var url = [], port,
+    path = buildRequestPath(purrl),
+    host = purrl.config('host');
+
+    purrl[I].requestHeader = {};
+
+    if (!host) {
+        throw new Error('Cannot generate a URL. The host is not configured.');
+    }
+
+    port = purrl.config('port');
+
+    url.push(purrl.config('protocol'));
+    url.push('://');
+    url.push(host);
+    if (port !== undefined) {
+        url.push(':', port);
+    }
+    if (path.length > 0) {
+        url.push('/', path);
+    }
+    return url.join('');
+}
+
 function sendRequest (purrl, verb, body) {
     var request, options, beforeRequestBodyContext;
 
     purrl[I].context.request = {};
 
     options = buildBasicRequestOptions(purrl, verb);
-    options.path = buildRequestPath(purrl);
+    options.path = '/' + buildRequestPath(purrl);
     options.headers = buildRequestHeaders(purrl, body !== undefined);
 
     if (options.hostname === undefined) {
@@ -629,6 +660,10 @@ function attachMethods (purrl) {
     purrl.noParam = function () {
         internalApply(noParam, purrl, arguments);
         return purrl;
+    };
+
+    purrl.toUrl = function () {
+        return internalApply(buildUrl, purrl, arguments);
     };
 
     purrl.get = function () {
