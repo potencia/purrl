@@ -316,6 +316,56 @@ var I = ' internal', configurations = {
             unaltered : true,
             value : result
         };
+    }),
+    promise : confFn(function (name, quiet) {
+        var lib, n, valid, deferred;
+        switch (Object.prototype.toString.call(name)) {
+            case '[object Undefined]': {
+                return {
+                    passThrough : true,
+                    value : this.promise.name
+                };
+            }
+            case '[object String]': {
+                try {
+                    n = name;
+                    lib = require(name);
+                } catch (e) {
+                    if (!quiet) {
+                        configurations.noPromise.call(this);
+                        throw new Error('Could not load the [ p ] promise library.');
+                    }
+                }
+                break;
+            }
+            default: {
+                n = '<custom>';
+                lib = name;
+            }
+        }
+        valid = (Object.prototype.toString.call(lib) === '[object Function]' || Object.prototype.toString.call(lib) === '[object Object]');
+        valid = (valid && Object.prototype.toString.call(lib.defer) === '[object Function]');
+        if (valid) {
+            deferred = lib.defer();
+        }
+        valid = (valid && Object.prototype.toString.call(deferred) === '[object Object]');
+        valid = (valid && Object.prototype.toString.call(deferred.promise) !== '[object Undefined]');
+        valid = (valid && Object.prototype.toString.call(deferred.resolve) === '[object Function]');
+        valid = (valid && Object.prototype.toString.call(deferred.reject) === '[object Function]');
+        if (valid) {
+            this.promise.name = n;
+            this.promise.library = lib;
+        } else {
+            configurations.noPromise.call(this);
+            if (!quiet) {
+                throw new Error('The supplied custom promise library does not meet the required interface.');
+            }
+        }
+    }),
+    noPromise : confFn({
+        read : false
+    }, function () {
+        this.promise = {};
     })
 };
 
@@ -523,7 +573,11 @@ function buildUrl (purrl) {
 }
 
 function sendRequest (purrl, verb, body) {
-    var request, options, beforeRequestBodyContext;
+    var request, options, beforeRequestBodyContext, deferred;
+
+    if (purrl[I].promise.library) {
+        deferred = purrl[I].promise.library.defer();
+    }
 
     purrl[I].context.request = {};
 
@@ -542,20 +596,42 @@ function sendRequest (purrl, verb, body) {
     request.on('response', function (response) {
         var allData;
         PURRL.hook(purrl, 'onResponse', {response : response});
-        allData = [];
+        if (deferred && response.statusCode < 200 || response.statusCode > 299) {
+            deferred.reject({
+                code : response.statusCode,
+                description : require('http').STATUS_CODES[response.statusCode]
+            });
+        } else {
+            allData = [];
+        }
         response.on('data', function (data) {
-            var onDataHook = PURRL.hook(purrl, 'onData', {data : data});
-            if (!onDataHook.cancelled) {
-                allData.push(onDataHook.data);
+            if (allData) {
+                var onDataHook = PURRL.hook(purrl, 'onData', {data : data});
+                if (!onDataHook.cancelled) {
+                    allData.push(onDataHook.data);
+                }
             }
         });
         response.on('end', function () {
-            PURRL.hook(purrl, 'onBody', {body : allData.join('')});
+            if (allData) {
+                var body = PURRL.hook(purrl, 'onBody', {body : allData.join('')}).body;
+                if (deferred) {
+                    deferred.resolve(body);
+                }
+            }
+        });
+        response.on('error', function (error) {
+            if (allData && deferred) {
+                deferred.reject(error);
+            }
         });
     });
 
     request.on('error', function (error) {
-        PURRL.hook(purrl, 'onRequestError', {error : error});
+        var err = PURRL.hook(purrl, 'onRequestError', {error : error}).error;
+        if (deferred) {
+            deferred.reject(err);
+        }
     });
 
     if (body !== undefined) {
@@ -566,6 +642,10 @@ function sendRequest (purrl, verb, body) {
     }
 
     request.end();
+
+    if (deferred) {
+        return deferred.promise;
+    }
 }
 
 placeholder = {
@@ -630,7 +710,8 @@ function createPurrl () {
                 onResponse : [],
                 onData : [],
                 onBody : []
-            }
+            },
+            promise : {}
         }
     });
 
@@ -667,23 +748,23 @@ function attachMethods (purrl) {
     };
 
     purrl.get = function () {
-        internalApply(sendRequest, purrl, 'GET', arguments);
+        return internalApply(sendRequest, purrl, 'GET', arguments);
     };
 
     purrl.post = function () {
-        internalApply(sendRequest, purrl, 'POST', arguments);
+        return internalApply(sendRequest, purrl, 'POST', arguments);
     };
 
     purrl.put = function () {
-        internalApply(sendRequest, purrl, 'PUT', arguments);
+        return internalApply(sendRequest, purrl, 'PUT', arguments);
     };
 
     purrl.patch = function () {
-        internalApply(sendRequest, purrl, 'PATCH', arguments);
+        return internalApply(sendRequest, purrl, 'PATCH', arguments);
     };
 
     purrl.delete = function () {
-        internalApply(sendRequest, purrl, 'DELETE', arguments);
+        return internalApply(sendRequest, purrl, 'DELETE', arguments);
     };
 }
 
@@ -712,7 +793,8 @@ function configure (purrl, config) {
             onBody : function (context) {
                 console.log(context.body);
             }
-        }
+        },
+        promise : 'q'
     });
     if (config !== undefined) {
         purrl.config(config);

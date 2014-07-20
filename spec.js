@@ -2,6 +2,7 @@
 
 var expect = require('chai').expect,
 sinon = require('sinon'),
+Q = require('q'),
 PURRL = require('./index');
 
 describe('PURRL', function () {
@@ -77,7 +78,8 @@ describe('PURRL', function () {
         describe('when called with no arguments', function () {
             it('should return an object with a copy of the current configuration', function () {
                 expect(purrl.config()).to.deep.equal({
-                    protocol : 'http'
+                    protocol : 'http',
+                    promise : 'q'
                 });
                 purrl
                 .config('protocol', 'https')
@@ -88,6 +90,7 @@ describe('PURRL', function () {
                 });
                 expect(purrl.config()).to.deep.equal({
                     protocol : 'https',
+                    promise : 'q',
                     host : 'example.com',
                     param : {
                         key : 'KEY',
@@ -109,6 +112,7 @@ describe('PURRL', function () {
                     host : 'example.com'
                 }).config()).to.deep.equal({
                     protocol : 'https',
+                    promise : 'q',
                     host : 'example.com'
                 });
             });
@@ -204,6 +208,7 @@ describe('PURRL', function () {
                 it('should not reset port to the default', function () {
                     expect(purrl.config({port : 8443, protocol : 'https'}).config()).to.deep.equal({
                         protocol : 'https',
+                        promise : 'q',
                         port : 8443
                     });
                 });
@@ -1058,6 +1063,206 @@ describe('PURRL', function () {
                 });
             });
         });
+
+        describe('option [ promise ]', function () {
+            describe('when passed no setting', function () {
+                it('should return the current setting', function () {
+                    expect(purrl.config('promise')).to.equal('q');
+                });
+            });
+
+            describe('when passed an invalid setting', function () {
+                it('should not throw an error when [ quite ] is passed [ true ]', function () {
+                    purrl.config('promise', 'p', true);
+                    expect(purrl.config('promise')).to.be.undefined;
+                    expect(purrl[' internal'].promise.library).to.be.undefined;
+                });
+
+                it('should throw an error on missing named library', function () {
+                    try {
+                        purrl.config('promise', 'p');
+                        expect(true, 'An error should have been thrown').to.be.false;
+                    } catch (error) {
+                        expect(error).to.be.an.instanceOf(Error);
+                        expect(error.message).to.equal('Could not load the [ p ] promise library.');
+                        expect(purrl.config('promise')).to.be.undefined;
+                    }
+                });
+
+                it('should throw an error on non object or non function passed as library', function () {
+                    try {
+                        purrl.config('promise', []);
+                        expect(true, 'An error should have been thrown').to.be.false;
+                    } catch (error) {
+                        expect(error).to.be.an.instanceOf(Error);
+                        expect(error.message).to.equal('The supplied custom promise library does not meet the required interface.');
+                        expect(purrl.config('promise')).to.be.undefined;
+                    }
+                });
+
+                it('should throw an error on library object without defer function', function () {
+                    try {
+                        purrl.config('promise', {});
+                        expect(true, 'An error should have been thrown').to.be.false;
+                    } catch (error) {
+                        expect(error).to.be.an.instanceOf(Error);
+                        expect(error.message).to.equal('The supplied custom promise library does not meet the required interface.');
+                        expect(purrl.config('promise')).to.be.undefined;
+                    }
+                });
+
+                it('should throw an error on library function without defer function', function () {
+                    try {
+                        purrl.config('promise', function () {});
+                        expect(true, 'An error should have been thrown').to.be.false;
+                    } catch (error) {
+                        expect(error).to.be.an.instanceOf(Error);
+                        expect(error.message).to.equal('The supplied custom promise library does not meet the required interface.');
+                        expect(purrl.config('promise')).to.be.undefined;
+                    }
+                });
+
+                it('should throw an error on library object with defer that does not return an object', function () {
+                    try {
+                        purrl.config('promise', {
+                            defer : sinon.stub()
+                        });
+                        expect(true, 'An error should have been thrown').to.be.false;
+                    } catch (error) {
+                        expect(error).to.be.an.instanceOf(Error);
+                        expect(error.message).to.equal('The supplied custom promise library does not meet the required interface.');
+                        expect(purrl.config('promise')).to.be.undefined;
+                    }
+                });
+
+                it('should throw an error on library object when defer returns an object without the promise property', function () {
+                    try {
+                        purrl.config('promise', {
+                            defer : sinon.stub().returns({
+                                resolve : function () {},
+                                reject : function () {}
+                            })
+                        });
+                        expect(true, 'An error should have been thrown').to.be.false;
+                    } catch (error) {
+                        expect(error).to.be.an.instanceOf(Error);
+                        expect(error.message).to.equal('The supplied custom promise library does not meet the required interface.');
+                        expect(purrl.config('promise')).to.be.undefined;
+                    }
+                });
+
+                it('should throw an error on library object when defer returns an object without the resolve function', function () {
+                    try {
+                        purrl.config('promise', {
+                            defer : sinon.stub().returns({
+                                promise : {},
+                                reject : function () {}
+                            })
+                        });
+                        expect(true, 'An error should have been thrown').to.be.false;
+                    } catch (error) {
+                        expect(error).to.be.an.instanceOf(Error);
+                        expect(error.message).to.equal('The supplied custom promise library does not meet the required interface.');
+                        expect(purrl.config('promise')).to.be.undefined;
+                    }
+                });
+
+                it('should throw an error on library object when defer returns an object without the reject function', function () {
+                    try {
+                        purrl.config('promise', {
+                            defer : sinon.stub().returns({
+                                promise : true,
+                                resolve : function () {}
+                            })
+                        });
+                        expect(true, 'An error should have been thrown').to.be.false;
+                    } catch (error) {
+                        expect(error).to.be.an.instanceOf(Error);
+                        expect(error.message).to.equal('The supplied custom promise library does not meet the required interface.');
+                        expect(purrl.config('promise')).to.be.undefined;
+                    }
+                });
+            });
+
+            describe('when passed a valid object library', function () {
+                var customLib;
+                beforeEach(function () {
+                    customLib = {
+                        defer : sinon.stub().returns({
+                            promise : {},
+                            resolve : function () {},
+                            reject : function () {}
+                        })
+                    };
+                });
+
+                it('should return the purrl object', function () {
+                    expect(purrl.config('promise', customLib)).to.equal(purrl);
+                });
+
+                it('should update the configuration', function () {
+                    expect(purrl.config('promise', customLib).config('promise')).to.equal('<custom>');
+                    expect(purrl[' internal'].promise.library).to.equal(customLib);
+                });
+            });
+
+            describe('when passed a valid function library', function () {
+                var customLib;
+                beforeEach(function () {
+                    customLib = function () {};
+                    customLib.defer = sinon.stub().returns({
+                        promise : {},
+                        resolve : function () {},
+                        reject : function () {}
+                    });
+                });
+
+                it('should return the purrl object', function () {
+                    expect(purrl.config('promise', customLib)).to.equal(purrl);
+                });
+
+                it('should update the configuration', function () {
+                    expect(purrl.config('promise', customLib).config('promise')).to.equal('<custom>');
+                    expect(purrl[' internal'].promise.library).to.equal(customLib);
+                });
+            });
+
+            describe('when passed a valid library name', function () {
+                beforeEach(function () {
+                    purrl.config('noPromise');
+                });
+
+                it('should return the purrl object', function () {
+                    expect(purrl.config('promise', 'q')).to.equal(purrl);
+                });
+
+                it('should update the configuration', function () {
+                    expect(purrl.config('promise', 'q').config('promise')).to.equal('q');
+                    expect(purrl[' internal'].promise.library).to.equal(require('q'));
+                });
+            });
+        });
+    });
+
+    describe('option [ noPromise ]', function () {
+        beforeEach(function () {
+            purrl.config('promise', {
+                defer : sinon.stub().returns({
+                    promise : {},
+                    resolve : function () {},
+                    reject : function () {}
+                })
+            });
+        });
+
+        it('should return the purrl object', function () {
+            expect(purrl.config('noPromise')).to.equal(purrl);
+        });
+
+        it('should unset to [ promise ] option', function () {
+            expect(purrl.config('noPromise').config('promise')).to.be.undefined;
+            expect(purrl[' internal'].promise.library).to.be.undefined;
+        });
     });
 
     describe('static .hook()', function () {
@@ -1625,20 +1830,27 @@ describe('PURRL', function () {
             expect(requestObject.end.callCount).to.equal(1);
         });
 
-        describe('when the [ response ] event is triggered', function () {
-            var responseObject, onResponse, onData, onBody;
+        describe('when the [ response ] event is triggered with a 2xx code with [ promise ] set', function () {
+            var responseObject, onResponse, onData, onBody, deferred;
+            function Promise () {}
             beforeEach(function () {
                 var ctr, len;
                 onResponse = sinon.stub();
                 onData = sinon.stub();
                 onBody = sinon.stub();
-                purrl.config('hook', {
-                    onResponse : onResponse,
-                    onData : onData,
-                    onBody : onBody
+                deferred = Q.defer();
+                Promise.defer = sinon.stub().returns(deferred);
+                purrl.config({
+                    hook : {
+                        onResponse : onResponse,
+                        onData : onData,
+                        onBody : onBody
+                    },
+                    promise : Promise
                 }).get();
                 responseObject = {
-                    on : sinon.stub()
+                    on : sinon.stub(),
+                    statusCode : 200
                 };
                 for (ctr = 0, len = requestObject.on.callCount; ctr < len; ctr++) {
                     if (requestObject.on.getCall(ctr).args[0] === 'response') {
@@ -1661,8 +1873,12 @@ describe('PURRL', function () {
                 expect(responseObject.on.calledWith('end')).to.be.true;
             });
 
-            describe('[ data ] and [ end ] handling', function () {
-                var sendData, sendEnd;
+            it('should register a listener for the [ error ] event on the response object.', function () {
+                expect(responseObject.on.calledWith('error')).to.be.true;
+            });
+
+            describe('[ data ], [ error ] and [ end ] handling', function () {
+                var sendData, sendEnd, sendError;
                 beforeEach(function () {
                     var ctr, len;
                     for (ctr = 0, len = responseObject.on.callCount; ctr < len; ctr++) {
@@ -1671,6 +1887,9 @@ describe('PURRL', function () {
                         }
                         if (responseObject.on.getCall(ctr).args[0] === 'end') {
                             sendEnd = responseObject.on.getCall(ctr).args[1];
+                        }
+                        if (responseObject.on.getCall(ctr).args[0] === 'error') {
+                            sendError = responseObject.on.getCall(ctr).args[1];
                         }
                     }
                 });
@@ -1719,6 +1938,231 @@ describe('PURRL', function () {
                     sendData(' third');
                     sendEnd();
                     expect(onBody.firstCall.args[0].body).to.equal('first third');
+                });
+
+                it('should resolve the promise with the body when `end` is emitted', function (done) {
+                    deferred.promise
+                    .then(function (body) {
+                        expect(body).to.equal('of work');
+                    })
+                    .done(done);
+                    sendData('of work');
+                    sendEnd();
+                });
+
+                it('should allow [ onData ] to alter the body used to resolve', function (done) {
+                    purrl.config('hook', 'onBody', function (context) {
+                        context.body = context.body.toUpperCase();
+                    });
+                    deferred.promise
+                    .then(function (body) {
+                        expect(body).to.equal('OF WORK');
+                    })
+                    .done(done);
+                    sendData('of work');
+                    sendEnd();
+                });
+
+                it('should reject the promise with the error when `error` is emitted', function (done) {
+                    deferred.promise
+                    .then(function () {
+                        expect(true, 'An error should have been thrown').to.be.false;
+                    }, function (reason) {
+                        expect(reason).to.equal('Arrgh!');
+                    }).done(done);
+                    sendError('Arrgh!');
+                });
+            });
+        });
+
+        describe('when the [ response ] event is triggered with a non 200 code with [ promise ] set', function () {
+            var responseObject, onResponse, onData, onBody, promise;
+            beforeEach(function () {
+                var ctr, len;
+                onResponse = sinon.stub();
+                onData = sinon.stub();
+                onBody = sinon.stub();
+                promise = purrl.config({
+                    hook : {
+                        onResponse : onResponse,
+                        onData : onData,
+                        onBody : onBody
+                    }
+                }).get();
+                responseObject = {
+                    on : sinon.stub(),
+                    statusCode : 404
+                };
+                for (ctr = 0, len = requestObject.on.callCount; ctr < len; ctr++) {
+                    if (requestObject.on.getCall(ctr).args[0] === 'response') {
+                        requestObject.on.getCall(ctr).args[1](responseObject);
+                        break;
+                    }
+                }
+            });
+
+            it('should call the [ onResponse ] hook', function () {
+                expect(onResponse.callCount).to.equal(1);
+                expect(onResponse.firstCall.args[0].response).to.equal(responseObject);
+            });
+
+            it('should register a listener for the [ data ] event on the response object.', function () {
+                expect(responseObject.on.calledWith('data')).to.be.true;
+            });
+
+            it('should register a listener for the [ end ] event on the response object.', function () {
+                expect(responseObject.on.calledWith('end')).to.be.true;
+            });
+
+            it('should register a listener for the [ error ] event on the response object.', function () {
+                expect(responseObject.on.calledWith('error')).to.be.true;
+            });
+
+            describe('[ data ], [ error ] and [ end ] handling', function () {
+                var sendData, sendEnd, sendError;
+                beforeEach(function () {
+                    var ctr, len;
+                    for (ctr = 0, len = responseObject.on.callCount; ctr < len; ctr++) {
+                        if (responseObject.on.getCall(ctr).args[0] === 'data') {
+                            sendData = responseObject.on.getCall(ctr).args[1];
+                        }
+                        if (responseObject.on.getCall(ctr).args[0] === 'end') {
+                            sendEnd = responseObject.on.getCall(ctr).args[1];
+                        }
+                        if (responseObject.on.getCall(ctr).args[0] === 'error') {
+                            sendError = responseObject.on.getCall(ctr).args[1];
+                        }
+                    }
+                });
+
+                it('should not call the [ onData ] or [ onBody ] hooks', function () {
+                    sendData('first');
+                    sendData(' second');
+                    sendData(' third');
+                    sendEnd();
+                    expect(onData.callCount).to.equal(0);
+                    expect(onBody.callCount).to.equal(0);
+                });
+
+                it('should reject the promise with the code and a description', function (done) {
+                    promise
+                    .fail(function (reason) {
+                        expect(reason.code).to.equal(404);
+                        expect(reason.description).to.equal('Not Found');
+                    })
+                    .done(done);
+                });
+            });
+        });
+
+        describe('when the [ response ] event is triggered with [ promise ] unset', function () {
+            var responseObject, onResponse, onData, onBody;
+            beforeEach(function () {
+                var ctr, len;
+                onResponse = sinon.stub();
+                onData = sinon.stub();
+                onBody = sinon.stub();
+                purrl.config({
+                    hook : {
+                        onResponse : onResponse,
+                        onData : onData,
+                        onBody : onBody
+                    },
+                    noPromise : true
+                }).get();
+                responseObject = {
+                    on : sinon.stub()
+                };
+                for (ctr = 0, len = requestObject.on.callCount; ctr < len; ctr++) {
+                    if (requestObject.on.getCall(ctr).args[0] === 'response') {
+                        requestObject.on.getCall(ctr).args[1](responseObject);
+                        break;
+                    }
+                }
+            });
+
+            it('should call the [ onResponse ] hook', function () {
+                expect(onResponse.callCount).to.equal(1);
+                expect(onResponse.firstCall.args[0].response).to.equal(responseObject);
+            });
+
+            it('should register a listener for the [ data ] event on the response object.', function () {
+                expect(responseObject.on.calledWith('data')).to.be.true;
+            });
+
+            it('should register a listener for the [ end ] event on the response object.', function () {
+                expect(responseObject.on.calledWith('end')).to.be.true;
+            });
+
+            it('should register a listener for the [ error ] event on the response object.', function () {
+                expect(responseObject.on.calledWith('error')).to.be.true;
+            });
+
+            describe('[ data ], [ error ] and [ end ] handling', function () {
+                var sendData, sendEnd, sendError;
+                beforeEach(function () {
+                    var ctr, len;
+                    for (ctr = 0, len = responseObject.on.callCount; ctr < len; ctr++) {
+                        if (responseObject.on.getCall(ctr).args[0] === 'data') {
+                            sendData = responseObject.on.getCall(ctr).args[1];
+                        }
+                        if (responseObject.on.getCall(ctr).args[0] === 'end') {
+                            sendEnd = responseObject.on.getCall(ctr).args[1];
+                        }
+                        if (responseObject.on.getCall(ctr).args[0] === 'error') {
+                            sendError = responseObject.on.getCall(ctr).args[1];
+                        }
+                    }
+                });
+
+                it('should append together all data chunks and send them to the [ onBody ] hook', function () {
+                    sendData('first');
+                    sendData(' second');
+                    sendData(' third');
+                    sendEnd();
+                    expect(onData.callCount).to.equal(3);
+                    expect(onData.getCall(0).args[0].data).to.equal('first');
+                    expect(onData.getCall(1).args[0].data).to.equal(' second');
+                    expect(onData.getCall(2).args[0].data).to.equal(' third');
+                    expect(onBody.firstCall.args[0].body).to.equal('first second third');
+                });
+
+                it('should allow [ onData ] handlers to alter the data', function () {
+                    purrl.config('hook', 'onData', [
+                        function (context) {
+                            context.data = context.data
+                            .toUpperCase();
+                        },
+                        function (context) {
+                            if (context.data[0] === ' ') {
+                                context.data = ',' + context.data;
+                            }
+                        }
+                    ]);
+                    sendData('first');
+                    sendData(' second');
+                    sendData(' third');
+                    sendEnd();
+                    expect(onBody.firstCall.args[0].body).to.equal('FIRST, SECOND, THIRD');
+                });
+
+                it('should allow [ onData ] handlers to cancel individual data chunks', function () {
+                    purrl.config('hook', 'onData', [
+                        function (context) {
+                            if (context.data.indexOf('c') !== -1) {
+                                context.cancel();
+                            }
+                        }
+                    ]);
+                    sendData('first');
+                    sendData(' second');
+                    sendData(' third');
+                    sendEnd();
+                    expect(onBody.firstCall.args[0].body).to.equal('first third');
+                });
+
+                it('should do nothing when `error` is emitted', function () {
+                    sendError('error');
                 });
             });
         });
@@ -1772,9 +2216,42 @@ describe('PURRL', function () {
             });
         });
 
-        describe('when [ error ] event is triggered', function () {
+        describe('when [ error ] event is triggered with [ promise ] set', function () {
+            it('should call the onRequestError hook and reject the promise', function (done) {
+                var ctr, len, testError = new Error('Test Error'), onRequestErrorStub = sinon.stub();
+                purrl.config('hook', 'onRequestError', onRequestErrorStub).get()
+                .fail(function (error) {
+                    expect(error).to.equal(testError);
+                }).done(done);
+                for (ctr = 0, len = requestObject.on.callCount; ctr < len; ctr++) {
+                    if (requestObject.on.getCall(ctr).args[0] === 'error') {
+                        requestObject.on.getCall(ctr).args[1](testError);
+                        break;
+                    }
+                }
+                expect(onRequestErrorStub.callCount).to.equal(1);
+                expect(onRequestErrorStub.firstCall.args[0].error).to.equal(testError);
+            });
+
+            it('should allow onRequestError hook to alter the error used to reject the promise', function (done) {
+                var ctr, len, testError = new Error('Test Error');
+                purrl.config('hook', 'onRequestError', function (context) { context.error = testError; }).get()
+                .fail(function (error) {
+                    expect(error).to.equal(testError);
+                }).done(done);
+                for (ctr = 0, len = requestObject.on.callCount; ctr < len; ctr++) {
+                    if (requestObject.on.getCall(ctr).args[0] === 'error') {
+                        requestObject.on.getCall(ctr).args[1]('Um, Guys?');
+                        break;
+                    }
+                }
+            });
+        });
+
+        describe('when [ error ] event is triggered with [ promise ] unset', function () {
             it('should call the onRequestError hook', function () {
                 var ctr, len, testError = new Error('Test Error'), onRequestErrorStub = sinon.stub();
+                purrl.config('noPromise');
                 purrl.config('hook', 'onRequestError', onRequestErrorStub).get();
                 for (ctr = 0, len = requestObject.on.callCount; ctr < len; ctr++) {
                     if (requestObject.on.getCall(ctr).args[0] === 'error') {
@@ -1787,9 +2264,39 @@ describe('PURRL', function () {
             });
         });
 
-        describe('.get()', function () {
+        describe('verb methods when [ promise ] is unset', function () {
+            beforeEach(function () {
+                purrl.config('noPromise');
+            });
+
             it('should return undefined', function () {
                 expect(purrl.get()).to.be.undefined;
+            });
+        });
+
+        describe('verb methods when a [ promise ] is set', function () {
+            var deferred;
+            function Promise () {}
+            beforeEach(function () {
+                deferred = Q.defer();
+                Promise.defer = sinon.stub().returns(deferred);
+                purrl.config('promise', Promise);
+                Promise.defer.reset();
+            });
+
+            it('should call the [ defer() ] method of the promise library', function () {
+                purrl.get();
+                expect(Promise.defer.callCount).to.equal(1);
+            });
+
+            it('should return a promise', function () {
+                expect(purrl.get()).to.equal(deferred.promise);
+            });
+        });
+
+        describe('.get()', function () {
+            it('should return a promise', function () {
+                expect(Q.isPromise(purrl.get())).to.be.true;
             });
 
             it('should cause the request method to be [ GET ]', function () {
@@ -1799,8 +2306,8 @@ describe('PURRL', function () {
         });
 
         describe('.post()', function () {
-            it('should return undefined', function () {
-                expect(purrl.post()).to.be.undefined;
+            it('should return a promise', function () {
+                expect(Q.isPromise(purrl.post())).to.be.true;
             });
 
             it('should cause the request method to be [ POST ]', function () {
@@ -1810,8 +2317,8 @@ describe('PURRL', function () {
         });
 
         describe('.put()', function () {
-            it('should return undefined', function () {
-                expect(purrl.put()).to.be.undefined;
+            it('should return a promise', function () {
+                expect(Q.isPromise(purrl.put())).to.be.true;
             });
 
             it('should cause the request method to be [ PUT ]', function () {
@@ -1821,8 +2328,8 @@ describe('PURRL', function () {
         });
 
         describe('.patch()', function () {
-            it('should return undefined', function () {
-                expect(purrl.patch()).to.be.undefined;
+            it('should return a promise', function () {
+                expect(Q.isPromise(purrl.patch())).to.be.true;
             });
 
             it('should cause the request method to be [ PATCH ]', function () {
@@ -1832,8 +2339,8 @@ describe('PURRL', function () {
         });
 
         describe('.delete()', function () {
-            it('should return undefined', function () {
-                expect(purrl.delete()).to.be.undefined;
+            it('should return a promise', function () {
+                expect(Q.isPromise(purrl.delete())).to.be.true;
             });
 
             it('should cause the request method to be [ DELETE ]', function () {

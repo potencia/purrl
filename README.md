@@ -42,7 +42,6 @@ See the [Trello API documentation](https://trello.com/docs/) for details about t
     var purrl = new PURRL();
 
     // Configure the client instance:
-    var result;
     purrl
         .config('protocol', 'https') // default is 'http'
         .config('host', 'trello.com') // this setting is required
@@ -51,25 +50,20 @@ See the [Trello API documentation](https://trello.com/docs/) for details about t
         .config('param', 'token', /* YOUR USER OAUTH TOKEN */)
         .config('pathElement', 'me', ['members', 'me'])
         .config('pathElement', 'board', ['boards', {}])
-        .config('hook', 'onBody', function (context) { result = JSON.parse(context.body); })
+        .config('hook', 'onBody', function (context) { context.body = JSON.parse(context.body); })
         .config('hook', 'beforePath', function (context) { context.path.unshift(1); });
 
     // Issue a GET request
-    purrl.me.get();
-
-    // ...
-    // Once the HTTP request's end event is emitted
-    // the onBody hook is triggered and the full body is stored in
-    // the result variable.
-    // ...
-
-    purrl.board(result.idBoards[0]).get();
-
-    // ...
-    // Wait for the request to complete
-    // ...
-
-    console.log(result);
+    purrl.me.get()
+    .then(function (me) {
+        return purrl.board(me.idBoards[0]).get();
+    })
+    .then(function (myFirstBoard) {
+        console.log(myFirstBoard);
+    })
+    .catch(function (error) {
+        console.log(error);
+    });
 
 ----------------------------------------------------------------------
 
@@ -106,7 +100,7 @@ Here is the same example but using the custom PURRL [REPL](http://nodejs.org/api
 A few items to note: The purrl instance is automatically instantiated for you. Special hooks are pre-registered for you that block the REPL until the
 response is complete and then return the body as if it were the return value of the call. (In reality, the body is not the actual return value so a statement
 like `purrl> var results = purrl(1).me.get();` would not set the `results` variable to the returned body (as might be expected) but would set `results` to
-`undefined`. The `_` variable would still contain the returned body.
+a promise or `undefined` depending on the configuration. The `_` variable would still contain the returned body.
 
 ----------------------------------------------------------------------
 
@@ -367,7 +361,7 @@ it is not set in the same request or a later request the protocol's default port
         host : 'example.com',
         port : 8080
     }).config('protocol', 'http').toUrl();
-      // returns -> http://example.com (default port 80 is not shown in the URL);
+      // returns -> http://example.com (default port 80 is not shown in the URL)
     purrl.config('port'); // returns -> undefined
 
     purrl.config({
@@ -702,6 +696,58 @@ desire to reorder the functions in a hook's list.
       //     'function onBody1() {}'
       // ]
 
+##### promise #####
+
+Sets the promise library for returning promises from the verb methods. By default this setting is preset to the [Q library](http://documentup.com/kriskowal/q/)
+which is an optional dependency so you don't need to do anything to get Q promises returned from the verb methods. If Q is not available, or if an invalid
+library is used for the `promise` option, then the promise option will be unset and verb methods will return `undefined`.
+
+    purrl.config('host', 'example.com');
+    purrl.config('promise', 'q'); // This isn't really needed as Q is set by default
+    purrl.get().then(function (body) {
+        console.log(body);
+    }).catch(function (reason) {
+        if (reason.code === 404) {
+            console.log('Resource not found');
+        }
+    });
+
+If the HTTP response code is a non error code (200 - 299), the promise is resolved with the body that is returned (and possibly modified by any `onBody` hooks.
+If the response is any other code, the promise is rejected with the HTTP status code and a short description. If an error was thrown (the request or response
+`error` handler was triggered) then the promise is rejected with the error passed to the handler.
+
+    purrl.config('host', 'example.com');
+    purrl.config('promise', 'q'); // This isn't really needed as Q is set by default
+    purrl.get().fail(function (reason) {
+        if (reason.code) {
+            console.log('HTTP ' + reason.code + ': ' + reason.description);
+        } else {
+            console.log(reason);
+        }
+    });
+
+You are allowed to provide any promise library of your choosing, or create a promise framework of your own. The required interface that must be followed by a
+promise library used by PURRL is the following:
+
+- The library is an object or a function
+- The library provides the `defer()` method
+- When the `defer()` method is called, a `deferred` object is returned
+- All `deferred` objects must have the following characteristics
+  - The object has a `promise` property
+  - The object has a `resolve()` method
+  - The object has a `reject()` method
+
+If the library meets these criteria, then it can be used by PURRL as the promise library.
+
+##### noPromise #####
+
+Removes any set promise library from the configuration. When there is no promise library set, the verb methods return `undefined`. This option does not utilize
+any arguments.
+
+    purrl.config('host', 'example.com');
+    purrl.config('noPromise');
+    purrl.get(); // returns -> undefined
+
 #### Configuration Option Quick Reference ####
 
 <table>
@@ -721,6 +767,8 @@ desire to reorder the functions in a hook's list.
       <td></td></tr>
   <tr><td><b>addHook</b></td><td>special</td><td>write-only</td><td>See the Available Hooks section below</td><td>function, optional index</td><td></td></tr>
   <tr><td><b>removeHook</b></td><td>special</td><td>write-only</td><td>See the Available Hooks section below</td><td>index</td><td></td></tr>
+  <tr><td><b>promise</b></td><td>string or instantiated library</td><td>read/write</td><td></td><td>valid promise libraries</td><td></td></tr>
+  <tr><td><b>noPromise</b></td><td>special</td><td>write-only</td><td></td><td></td><td></td></tr>
 </table>
 
 ### Hooks ###
@@ -809,7 +857,8 @@ Called once when the HTTP response object emits an `end` event.
 
 Special Context Data:
 
-`body` : The concatenated data from each `data` event.
+`body` : The concatenated data from each `data` event. Any alterations to this property will be reflected in the value used to resolve the promise returned from
+the verb method.
 
 ##### onRequestError #####
 

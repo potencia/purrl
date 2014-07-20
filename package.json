@@ -25,7 +25,8 @@
         "test": "gulp test"
     },
     "optionalDependencies" : {
-        "minimist" : "^0.2.0"
+        "minimist" : "^0.2.0",
+        "q" : "^1.0.1"
     },
     "devDependencies" : {
         "chai" : "^1.9.1",
