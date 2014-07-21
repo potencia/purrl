@@ -1,6 +1,7 @@
 'use strict';
 
-var expect = require('chai').expect,
+var fs = require('fs'),
+expect = require('chai').expect,
 sinon = require('sinon'),
 Q = require('q'),
 PURRL = require('./index');
@@ -808,6 +809,61 @@ describe('PURRL', function () {
                     expect(purrl.config('hook', {
                         onData : [onData2, onData3]
                     }).config('hook', 'onData')).to.deep.equal(['function onData2() { return 2 + 2; }', 'function onData3() { return 3 + 3; }']);
+                });
+            });
+        });
+
+        describe('option [ loadHooks ]', function () {
+            describe('when passed a valid absolute path to a hook module', function () {
+                it('should load the hooks from the module', function (done) {
+                    fs.realpath('./testHook.js', function (err, absolutePath) {
+                        expect(purrl.config('loadHooks', absolutePath).config('hook')).to.deep.equal({
+                            onBody : ['function () { return 1 + 1; }']
+                        });
+                        done();
+                    });
+                });
+            });
+
+            describe('when passed a valid relative path to a hook module', function () {
+                it('should load the hooks from the module', function () {
+                    expect(purrl.config('loadHooks', './testHook.js').config('hook')).to.deep.equal({
+                        onBody : ['function () { return 1 + 1; }']
+                    });
+                });
+            });
+
+            describe('when passed a valid name of a hook module', function () {
+                it('should load the hooks from the module', function (done) {
+                    Q.nfcall(fs.mkdir, './node_modules')
+                    .then(function () {}, function () {}) // ignore any errors
+                    .then(function () {
+                        return Q.nfcall(fs.mkdir, './node_modules/testHook');
+                    })
+                    .then(function () {}, function () {}) // ignore any errors
+                    .then(function () {
+                        return Q.nfcall(fs.writeFile, './node_modules/testHook/package.json', JSON.stringify({main : 'index.js'}, null, 4));
+                    })
+                    .then(function () {
+                        return Q.nfcall(fs.readFile, './testHook.js');
+                    })
+                    .then(function (data) {
+                        return Q.nfcall(fs.writeFile, './node_modules/testHook/index.js', data);
+                    })
+                    .then(function () {
+                        expect(purrl.config('loadHooks', 'testHook').config('hook')).to.deep.equal({
+                            onBody : ['function () { return 1 + 1; }']
+                        });
+                    })
+                    .done(done);
+                });
+            });
+
+            describe('when passed an invalid path', function () {
+                it('should throw an error', function () {
+                    expect(function () {
+                        purrl.config('loadHooks', './notAModule');
+                    }).to.throw(Error, 'Could not load hooks from [ ./notAModule ].');
                 });
             });
         });

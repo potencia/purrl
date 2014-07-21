@@ -713,6 +713,31 @@ functions from a hook chain. See the Available Hooks section below for a list of
       //     ]
       // }
 
+##### loadHooks #####
+
+Uses the node require() function to load a module and then uses the object exported from the module to set the `hook` option.
+
+    /* hookModule.js */
+
+    exports.onBody = function onBody4() {};
+
+    exports.onData = [
+        function onData1() {},
+        function onData2() {},
+    ];
+
+    /* somewhere in a different module */
+
+    purrl.config('loadHooks', './hookModule.js');
+    purrl.config('hook');
+      // returns -> {
+      //     onBody : ['function onBody4() {}'],
+      //     onData : [
+      //         'function onData1() {}',
+      //         'function onData2() {}'
+      //     ]
+      // }
+
 ##### addHook #####
 
 Adds a hook function into the named hook chain. When an index argument is *not* provided the function is appended to the end of the chain, when an index
@@ -846,6 +871,7 @@ any arguments.
   <tr><td><b>removeVerb</b></td><td>special</td><td>write-only</td><td></td><td>verb method names</td><td></td></tr>
   <tr><td><b>hook</b></td><td>multi-value</td><td>read/write</td><td>See the Available Hooks section below</td><td>function or array of functions</td>
       <td></td></tr>
+  <tr><td><b>loadHooks</b></td><td>special</td><td>write-only</td><td></td><td>valid module path</td><td></td></tr>
   <tr><td><b>addHook</b></td><td>special</td><td>write-only</td><td>See the Available Hooks section below</td><td>function, optional index</td><td></td></tr>
   <tr><td><b>removeHook</b></td><td>special</td><td>write-only</td><td>See the Available Hooks section below</td><td>index</td><td></td></tr>
   <tr><td><b>promise</b></td><td>string or instantiated library</td><td>read/write</td><td></td><td>valid promise libraries</td><td></td></tr>

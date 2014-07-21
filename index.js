@@ -1,6 +1,7 @@
 'use strict';
 
-var url = require('url'),
+var fs = require('fs'),
+url = require('url'),
 I = ' internal',
 placeholder, PURRL, configurations;
 
@@ -544,6 +545,21 @@ configurations = {
                 throw new Error('The hook setting must be a recognized [ key ] with either a [ function ] or an [ array ] of functions or a [ hook ] object.');
             }
         }
+    }),
+    loadHooks : confFn({
+        read : false
+    }, function (path) {
+        var module;
+        try {
+            if (path.indexOf('.') === 0) {
+                module = require(fs.realpathSync(path));
+            } else {
+                module = require(path);
+            }
+        } catch (e) {
+            throw new Error('Could not load hooks from [ ' + path + ' ].');
+        }
+        configurations.hook.call(this, module);
     }),
     addHook : confFn({
         read : false
