@@ -3,9 +3,8 @@
 
 Many times when developing, testing, or learning an HTTP protocol based API, I have found myself using that wholly remarkable *nix tool, `curl`. Now, `curl` is
 an immensely useful tool when it comes to seeing what is really going on at the HTTP level. I have found, nevertheless, that when I need to start making many
-calls using HTTP `POST`, `PUT`, `PATCH`, or `DELETE` like when working
-with a RESTful API (or an [API that isn't RESTful](http://vvv.tobiassjosten.net/development/your-api-is-not-restful/) but still uses the HTTP verbs) that `curl`
-becomes too cumbersome.
+calls using HTTP `POST`, `PUT`, or `DELETE` like when working with a RESTful API (or an
+[API that isn't RESTful](http://vvv.tobiassjosten.net/development/your-api-is-not-restful/) but still uses the HTTP verbs) that `curl` becomes too cumbersome.
 
 Having to remember to escape the ampersand (&) on the command line, and all that typing of hand-made JSON for request bodies makes me want to stop testing:
 
@@ -171,8 +170,8 @@ configuration option (see below). This will also suppress a query parameter prev
 
 #### purrl.{verb}() ####
 
-Sends an HTTP request using the verb that matches the method name. If a body is supplied, the body is sent as the request body. The path, transient query
-parameters and transient headers are all cleared upon calling a verb method.
+Sends an HTTP request using the HTTP method that is configured for the given verb. If a body is supplied, the body is sent as the request body. The path,
+transient query parameters and transient headers are all cleared upon calling a verb method.
 
     // Assume purrl.config('host', 'example.com'); was called some time before
 
@@ -186,12 +185,13 @@ parameters and transient headers are all cleared upon calling a verb method.
       //     http://example.com/api/accounts
       // with 'er there.' as the request body
 
-The available verb methods are:
-- purrl.get([body])
-- purrl.post([body])
-- purrl.put([body])
-- purrl.patch([body])
-- purrl.delete([body])
+By default PURRL is configured with the following verb methods:
+- purrl.get([body]) (HTTP GET)
+- purrl.post([body]) (HTTP POST)
+- purrl.put([body]) (HTTP PUT)
+- purrl.delete([body]) (HTTP DELETE)
+
+To configure new or reconfigure existing verb methods see the `verb` and `removeVerb` configuration options below.
 
 #### purrl.toUrl() ####
 
@@ -590,8 +590,87 @@ element that is not set. If a valid property name that is not a custom path elem
     purrl.config('removePathElement', 'accounts'); // no error
 
     // Incorrect name is supplied
-    purrl.config('removePathElement', 'patch');
-      // ignored (the patch() verb method is left unharmed)
+    purrl.config('removePathElement', 'put');
+      // ignored (the put() verb method is left unharmed)
+
+##### verb #####
+
+Adds (or replaces) a verb method on the purrl object configured with the supplied HTTP method string. Properties added using this configuration can be used to
+issue HTTP requests using the configured HTTP method. This option can also be used to retrieve the currently configured HTTP method for a verb.
+
+    purrl.config('host', 'example.com');
+    purrl.config('verb', 'search', 'SEARCH');
+    purrl.config('verb', 'search'); // returns -> 'SEARCH'
+
+    purrl.search(); // Issues a SEARCH to http://example.com
+
+The verb name must be a valid JavaScript method name as it will be used to create a method on the purrl object. It may be the same as an existing verb method
+(which will result in the previous method being replaced). It cannot be the same as a property that already exists on the purrl object but is *not* a verb
+method.
+
+    purrl.config('host', 'example.com');
+    purrl.config('verb', 'copy', 'COPY');
+    purrl.copy(); // Issues a COPY to http://example.com
+
+    purrl.get(); // Issues a GET to http://example.com
+    purrl.config('verb', 'get', 'SEARCH');
+    purrl.get(); // Issues a SEARCH to http://example.com
+
+    // The purrl.header() verb method cannot be replaced with a verb method
+    purrl.config('verb', 'header', 'HEAD'); // error
+
+In order to be future compatible, PURRL allows any string to be used as the HTTP method for a verb method, no checking is performed. In order for the request to
+be made correctly, however, the underlying version of node.js must support the HTTP method used. If a particular HTTP method you are trying to use is not
+working as expected, the chances are that the version of node.js you are using does not support that HTTP method. As of node.js version 0.10.29, the supported
+HTTP methods are as follows. PURRL makes no guarantees that any other HTTP method will actually be sent.
+- CHECKOUT
+- CONNECT
+- COPY
+- DELETE
+- GET
+- HEAD
+- LOCK
+- MERGE
+- MKACTIVITY
+- MKCOL
+- MOVE
+- MSEARCH
+- NOTIFY
+- OPTIONS
+- PATCH
+- POST
+- PROPFIND
+- PROPPATCH
+- PURGE
+- PUT
+- REPORT
+- SEARCH
+- SUBSCRIBE
+- TRACE
+- UNLOCK
+- UNSUBSCRIBE
+
+##### removeVerb #####
+
+Removes a verb method from the purrl object. The verb method is identified by its name. It is *not* an error to attempt to remove a verb method that is not set.
+If a valid property name that is not a verb method is supplied, the removal request is ignored.
+
+    purrl.config('host', 'example.com');
+    purrl.get(); // Issues a GET to http://example.com
+
+    // Remove the verb method
+    purrl.config('removeVerb', 'get');
+    purrl.config('verb', 'get'); // returns -> undefined
+
+    purrl.get();
+      // error (verb method get() is undefined, cannot call an undefined method)
+
+    // Remove the verb method
+    purrl.config('removeVerb', 'get'); // no error
+
+    // Incorrect name is supplied
+    purrl.config('removeVerb', 'toUrl');
+      // ignored (the toUrl() (non-verb) method is left unharmed)
 
 ##### hook #####
 
@@ -763,6 +842,8 @@ any arguments.
   <tr><td><b>pathElement</b></td><td>multi-value</td><td>read/write</td><td>Any valid, non-conflicting property name</td>
       <td>value, placeholder or array of values and placeholders</td><td></td></tr>
   <tr><td><b>removePathElement</b></td><td>special</td><td>write-only</td><td></td><td>path element property names</td><td></td></tr>
+  <tr><td><b>verb</b></td><td>multi-value</td><td>read/write</td><td>Any valid, non-conflicting method name</td><td>HTTP method string</td><td></td></tr>
+  <tr><td><b>removeVerb</b></td><td>special</td><td>write-only</td><td></td><td>verb method names</td><td></td></tr>
   <tr><td><b>hook</b></td><td>multi-value</td><td>read/write</td><td>See the Available Hooks section below</td><td>function or array of functions</td>
       <td></td></tr>
   <tr><td><b>addHook</b></td><td>special</td><td>write-only</td><td>See the Available Hooks section below</td><td>function, optional index</td><td></td></tr>

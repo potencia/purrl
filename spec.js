@@ -79,7 +79,13 @@ describe('PURRL', function () {
             it('should return an object with a copy of the current configuration', function () {
                 expect(purrl.config()).to.deep.equal({
                     protocol : 'http',
-                    promise : 'q'
+                    promise : 'q',
+                    verb : {
+                        get : 'GET',
+                        post : 'POST',
+                        put : 'PUT',
+                        delete : 'DELETE'
+                    }
                 });
                 purrl
                 .config('protocol', 'https')
@@ -95,6 +101,12 @@ describe('PURRL', function () {
                     param : {
                         key : 'KEY',
                         token : 'TOKEN'
+                    },
+                    verb : {
+                        get : 'GET',
+                        post : 'POST',
+                        put : 'PUT',
+                        delete : 'DELETE'
                     }
                 });
                 expect(purrl.config().param).to.not.equal(purrl[' internal'].param);
@@ -113,7 +125,13 @@ describe('PURRL', function () {
                 }).config()).to.deep.equal({
                     protocol : 'https',
                     promise : 'q',
-                    host : 'example.com'
+                    host : 'example.com',
+                    verb : {
+                        get : 'GET',
+                        post : 'POST',
+                        put : 'PUT',
+                        delete : 'DELETE'
+                    }
                 });
             });
 
@@ -188,7 +206,13 @@ describe('PURRL', function () {
                     expect(purrl.config({port : 8443, protocol : 'https'}).config()).to.deep.equal({
                         protocol : 'https',
                         promise : 'q',
-                        port : 8443
+                        port : 8443,
+                        verb : {
+                            get : 'GET',
+                            post : 'POST',
+                            put : 'PUT',
+                            delete : 'DELETE'
+                        }
                     });
                 });
 
@@ -1093,26 +1117,195 @@ describe('PURRL', function () {
                 });
             });
         });
-    });
 
-    describe('option [ noPromise ]', function () {
-        beforeEach(function () {
-            purrl.config('promise', {
-                defer : sinon.stub().returns({
-                    promise : {},
-                    resolve : function () {},
-                    reject : function () {}
-                })
+        describe('option [ noPromise ]', function () {
+            beforeEach(function () {
+                purrl.config('promise', {
+                    defer : sinon.stub().returns({
+                        promise : {},
+                        resolve : function () {},
+                        reject : function () {}
+                    })
+                });
+            });
+
+            it('should return the purrl object', function () {
+                expect(purrl.config('noPromise')).to.equal(purrl);
+            });
+
+            it('should unset to [ promise ] option', function () {
+                expect(purrl.config('noPromise').config('promise')).to.be.undefined;
+                expect(purrl[' internal'].promise.library).to.be.undefined;
             });
         });
 
-        it('should return the purrl object', function () {
-            expect(purrl.config('noPromise')).to.equal(purrl);
+        describe('option [ verb ]', function () {
+            describe('when passed no setting', function () {
+                it('should return the current setting', function () {
+                    purrl[' internal'].verb = {};
+                    expect(purrl.config('verb')).to.deep.equal({});
+                });
+
+                it('should return the current setting', function () {
+                    expect(purrl.config('verb', 'get')).to.equal('GET');
+                    expect(purrl.config('verb')).to.deep.equal({
+                        get : 'GET',
+                        post : 'POST',
+                        put : 'PUT',
+                        delete : 'DELETE'
+                    });
+                });
+            });
+
+            describe('when passed an invalid setting', function () {
+                it('should throw an error on non string name or non object', function () {
+                    expect(function () {
+                        purrl.config('verb', []);
+                    }).to.throw(Error, 'The verb setting must be [ key ] and a string [ value ] or a [ verb ] object.');
+                });
+
+                it('should throw an error on conflicting name', function () {
+                    expect(function () {
+                        purrl.config('verb', 'param', 'SEARCH');
+                    }).to.throw(Error, 'The verb [ param ] conflicts with another property.');
+                });
+
+                it('should throw an error on non string value', function () {
+                    expect(function () {
+                        purrl.config('verb', 'get', []);
+                    }).to.throw(Error, 'The verb setting must be [ key ] and a string [ value ] or a [ verb ] object.');
+                });
+            });
+
+            describe('when passed a valid HTTP method', function () {
+                it('should return the purrl object', function () {
+                    expect(purrl.config('verb', 'search', 'SEARCH')).to.equal(purrl);
+                });
+
+                it('should update the configuration', function () {
+                    expect(purrl.config('verb', 'search', 'SEARCH').config('verb', 'search')).to.equal('SEARCH');
+                });
+
+                it('should add a matching method on the [ purrl ] object', function () {
+                    purrl.config('verb', 'search', 'SEARCH');
+                    expect(purrl).to.have.property('search');
+                    expect(purrl.search).to.be.a('function');
+                });
+            });
+
+            describe('when passed a valid object', function () {
+                it('should return the purrl object', function () {
+                    expect(purrl.config('verb', {})).to.equal(purrl);
+                });
+
+                it('should update the configuration', function () {
+                    expect(purrl.config('verb', {
+                        search : 'SEARCH',
+                        copy : 'COPY'
+                    }).config('verb')).to.deep.equal({
+                        get : 'GET',
+                        post : 'POST',
+                        put : 'PUT',
+                        delete : 'DELETE',
+                        search : 'SEARCH',
+                        copy : 'COPY'
+                    });
+                });
+
+                it('should the matching methods on the [ purrl ] object', function () {
+                    purrl.config('verb', {
+                        search : 'SEARCH',
+                        copy : 'COPY'
+                    });
+                    expect(purrl).to.have.property('search');
+                    expect(purrl.search).to.be.a('function');
+                    expect(purrl).to.have.property('copy');
+                    expect(purrl.copy).to.be.a('function');
+                });
+            });
+
+            describe('added method', function () {
+                var requestStub;
+                beforeEach(function () {
+                    requestStub = sinon.stub(require('http'), 'request').returns({
+                        on : function () {},
+                        end : function () {}
+                    });
+                    purrl.config({
+                        host : 'example.com',
+                        verb : {
+                            foo : 'SEARCH'
+                        }
+                    });
+                });
+
+                afterEach(function () {
+                    requestStub.restore();
+                });
+
+                it('should can the protocol\'s [ request() ]', function () {
+                    purrl.foo();
+                    expect(requestStub.callCount).to.equal(1);
+                });
+
+                it('should set the request [ method ] based on the configuration', function () {
+                    purrl.foo();
+                    purrl[' internal'].verb.foo = 'OTHER';
+                    purrl.foo();
+                    expect(requestStub.firstCall.args[0].method).to.equal('SEARCH');
+                    expect(requestStub.secondCall.args[0].method).to.equal('OTHER');
+                });
+
+                it('should return a [ promise ]', function () {
+                    expect(Q.isPromise(purrl.foo())).to.be.true;
+                });
+
+                describe('when no [ promise ] option is set', function () {
+                    it('should return [ undefined ]', function () {
+                        purrl.config('noPromise');
+                        expect(purrl.foo()).to.be.undefined;
+                    });
+                });
+            });
         });
 
-        it('should unset to [ promise ] option', function () {
-            expect(purrl.config('noPromise').config('promise')).to.be.undefined;
-            expect(purrl[' internal'].promise.library).to.be.undefined;
+        describe('option [ removeVerb ]', function () {
+            describe('when passed no verb key', function () {
+                it('should throw an error', function () {
+                    expect(function () {
+                        purrl.config('removeVerb');
+                    }).to.throw(Error, 'The removeVerb setting must be passed a verb key [ string ]');
+                });
+            });
+
+            describe('when passed a verb key', function () {
+                it('should return the purrl object', function () {
+                    expect(purrl.config('removeVerb', 'search')).to.equal(purrl);
+                });
+
+                it('should remove verb from the object of verbs', function () {
+                    purrl.config('removeVerb', 'get');
+                    expect(purrl.config('verb', 'get')).to.be.undefined;
+                    purrl.config('removeVerb', 'get');
+                    expect(purrl.config('verb', 'get')).to.be.undefined;
+                    purrl.config('removeVerb', 'post');
+                    expect(purrl.config('verb', 'post')).to.be.undefined;
+                    purrl.config('removeVerb', 'post');
+                    expect(purrl.config('verb', 'post')).to.be.undefined;
+                });
+
+                it('should remove the method from the purrl object', function () {
+                    purrl.config('removeVerb', 'get');
+                    expect(purrl.get).to.be.undefined;
+                    purrl.config('removeVerb', 'post');
+                    expect(purrl.post).to.be.undefined;
+                });
+
+                it('should NOT remove methods from non-verb configurations from the purrl object', function () {
+                    purrl.config('removeVerb', 'param');
+                    expect(purrl).to.have.property('param');
+                });
+            });
         });
     });
 
@@ -2057,16 +2250,6 @@ describe('PURRL', function () {
             });
         });
 
-        describe('verb methods when [ promise ] is unset', function () {
-            beforeEach(function () {
-                purrl.config('noPromise');
-            });
-
-            it('should return undefined', function () {
-                expect(purrl.get()).to.be.undefined;
-            });
-        });
-
         describe('verb methods when a [ promise ] is set', function () {
             var deferred;
             function Promise () {}
@@ -2080,65 +2263,6 @@ describe('PURRL', function () {
             it('should call the [ defer() ] method of the promise library', function () {
                 purrl.get();
                 expect(Promise.defer.callCount).to.equal(1);
-            });
-
-            it('should return a promise', function () {
-                expect(purrl.get()).to.equal(deferred.promise);
-            });
-        });
-
-        describe('.get()', function () {
-            it('should return a promise', function () {
-                expect(Q.isPromise(purrl.get())).to.be.true;
-            });
-
-            it('should cause the request method to be [ GET ]', function () {
-                purrl.get();
-                expect(requestStub.firstCall.args[0].method).to.equal('GET');
-            });
-        });
-
-        describe('.post()', function () {
-            it('should return a promise', function () {
-                expect(Q.isPromise(purrl.post())).to.be.true;
-            });
-
-            it('should cause the request method to be [ POST ]', function () {
-                purrl.post();
-                expect(requestStub.firstCall.args[0].method).to.equal('POST');
-            });
-        });
-
-        describe('.put()', function () {
-            it('should return a promise', function () {
-                expect(Q.isPromise(purrl.put())).to.be.true;
-            });
-
-            it('should cause the request method to be [ PUT ]', function () {
-                purrl.put();
-                expect(requestStub.firstCall.args[0].method).to.equal('PUT');
-            });
-        });
-
-        describe('.patch()', function () {
-            it('should return a promise', function () {
-                expect(Q.isPromise(purrl.patch())).to.be.true;
-            });
-
-            it('should cause the request method to be [ PATCH ]', function () {
-                purrl.patch();
-                expect(requestStub.firstCall.args[0].method).to.equal('PATCH');
-            });
-        });
-
-        describe('.delete()', function () {
-            it('should return a promise', function () {
-                expect(Q.isPromise(purrl.delete())).to.be.true;
-            });
-
-            it('should cause the request method to be [ DELETE ]', function () {
-                purrl.delete();
-                expect(requestStub.firstCall.args[0].method).to.equal('DELETE');
             });
         });
     });

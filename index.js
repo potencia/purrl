@@ -1,6 +1,8 @@
 'use strict';
 
-var url = require('url'), placeholder, PURRL;
+var url = require('url'),
+I = ' internal',
+placeholder, PURRL, configurations;
 
 function PlaceHolder (config) {
     if (config.p) {
@@ -61,314 +63,6 @@ function confFn (options) {
     return fn;
 }
 
-var I = ' internal', configurations = {
-    protocol : confFn({
-        supported : ['http', 'https']
-    },
-    function protocol (name) {
-        if (name === undefined) {
-            return this.protocol.name;
-        }
-        if (protocol.supported.indexOf(name) === -1) {
-            throw new Error('The [ ' + name + ' ] protocol is not supported.');
-        }
-        delete this.port;
-        this.protocol = {
-            name : name,
-            client : require(name)
-        };
-    }),
-    host : confFn(function (name) {
-        if (name === undefined) {
-            return {
-                passThrough : true,
-                value : this.host
-            };
-        }
-        if (Object.prototype.toString.call(name) !== '[object String]') {
-            throw new Error('The value [ ' + name + ' ] is invalid for host. It must be a string.');
-        }
-        this.host = name;
-    }),
-    port : confFn(function (num) {
-        if (num === undefined) {
-            return {
-                passThrough : true,
-                value : this.port
-            };
-        }
-        var setting = filterPort(num);
-        if (isNaN(setting) || setting < 1 || setting > 65535) {
-            throw new Error('The value [ ' + num + ' ] is not a valid port number.');
-        }
-        this.port = setting;
-    }),
-    param : confFn(function (key, value) {
-        if (key === undefined) {
-            return this.param;
-        }
-        switch (Object.prototype.toString.call(key)) {
-            case '[object String]': {
-                if (value === undefined) {
-                    return {
-                        passThrough : true,
-                        value : this.param[key]
-                    };
-                }
-                this.param[key] = value;
-                break;
-            }
-            case '[object Object]': {
-                Object.keys(key).forEach(function (paramKey) {
-                    this.param[paramKey] = key[paramKey];
-                }, this);
-                break;
-            }
-            default: {
-                throw new Error('The param setting must be [ key ] and [ value ] or a [ param ] object.');
-            }
-        }
-    }),
-    removeParam : confFn({
-        read : false
-    },
-    function (key) {
-        if (key === undefined) {
-            throw new Error('The removeParam setting must be passed a param key [ string ]');
-        }
-        delete this.param[key];
-    }),
-    header : confFn(function (key, value) {
-        if (key === undefined) {
-            return this.header;
-        }
-        switch (Object.prototype.toString.call(key)) {
-            case '[object String]': {
-                if (value === undefined) {
-                    return {
-                        passThrough : true,
-                        value : this.header[key]
-                    };
-                }
-                this.header[key] = value;
-                break;
-            }
-            case '[object Object]': {
-                Object.keys(key).forEach(function (headerKey) {
-                    this.header[headerKey] = key[headerKey];
-                }, this);
-                break;
-            }
-            default : {
-                throw new Error('The header setting must be [ key ] and [ value ] or a [ header ] object.');
-            }
-        }
-    }),
-    removeHeader : confFn({
-        read : false
-    },
-    function (key) {
-        if (key === undefined) {
-            throw new Error('The removeHeader setting must be passed a header key [ string ]');
-        }
-        delete this.header[key];
-    }),
-    pathElement : confFn({
-        thisIsPurrl : true
-    }, function pathElement (key, value) {
-        var self = this, internal = self[I];
-        switch (Object.prototype.toString.call(key)) {
-            case '[object Undefined]': {
-                return internal.pathElement;
-            }
-            case '[object String]': {
-                switch (Object.prototype.toString.call(value)) {
-                    case '[object Undefined]': {
-                        return {
-                            passThrough : true,
-                            value : internal.pathElement[key]
-                        };
-                    }
-                    case '[object Array]': {
-                        if (Object.getOwnPropertyDescriptor(self, key) !== undefined && !internal.pathElement.hasOwnProperty(key)) {
-                            throw new Error('The pathElement [ get ] conflicts with another property.');
-                        }
-                        internal.pathElement[key] = value.map(function (item) {
-                            return PlaceHolder.createOrPassthrough(item);
-                        });
-                        Object.defineProperty(self, key, {
-                            configurable : true,
-                            enumerable : true,
-                            get : function () {
-                                Array.prototype.push.apply(internal.path, internal.pathElement[key]);
-                                return self;
-                            }
-                        });
-                        break;
-                    }
-                    default: {
-                        return pathElement.call(self, key, [value]);
-                    }
-                }
-                break;
-            }
-            case '[object Object]': {
-                Object.keys(key).forEach(function (name) {
-                    pathElement.call(self, name, key[name]);
-                });
-                break;
-            }
-            default: {
-                throw new Error('The pathElement setting must be [ key ] and [ value ] or a [ pathElement ] object.');
-            }
-        }
-    }),
-    removePathElement : confFn({
-        thisIsPurrl : true,
-        read : false
-    },
-    function (key) {
-        if (key === undefined) {
-            throw new Error('The removePathElement setting must be passed a pathElement key [ string ]');
-        }
-        if (this[I].pathElement.hasOwnProperty(key)) {
-            delete this[I].pathElement[key];
-            delete this[key];
-        }
-    }),
-    hook : confFn(function hook (key, value) {
-        var self = this, result;
-        switch (Object.prototype.toString.call(key)) {
-            case '[object Undefined]': {
-                result = {};
-                Object.keys(self.hook).forEach(function (key) {
-                    var list = hook.call(self, key);
-                    if (list.length > 0) {
-                        result[key] = list;
-                    }
-                });
-                return result;
-            }
-            case '[object String]': {
-                checkHookName(self.hook, key);
-                switch (Object.prototype.toString.call(value)) {
-                    case '[object Undefined]': {
-                        return self.hook[key].map(function (fn) { return fn.toString(); });
-                    }
-                    case '[object Array]': {
-                        if (!value.every(function (item) { return Object.prototype.toString.call(item) === '[object Function]'; })) {
-                            throw new Error('Error setting hook named [ ' + key + ' ]. The value must be either a [ function ] or an [ array ] of functions.');
-                        }
-                        self.hook[key] = value;
-                        break;
-                    }
-                    default: {
-                        return hook.call(self, key, [value]);
-                    }
-                }
-                break;
-            }
-            case '[object Object]': {
-                Object.keys(key).forEach(function (name) {
-                    hook.call(self, name, key[name]);
-                });
-                break;
-            }
-            default: {
-                throw new Error('The hook setting must be a recognized [ key ] with either a [ function ] or an [ array ] of functions or a [ hook ] object.');
-            }
-        }
-    }),
-    addHook : confFn({
-        read : false
-    }, function (name, fn, idx) {
-        if (Object.prototype.toString.call(name) !== '[object String]' || Object.prototype.toString.call(fn) !== '[object Function]') {
-            throw new Error('The addHook setting must be passed a hookName [ string ], a value [ function ], and an optional index [ integer ]');
-        }
-        checkHookName(this.hook, name);
-        if (idx !== undefined) {
-            if (isNaN(filterIndex(idx.toString()))) {
-                throw new Error('The addHook index value is invalid.');
-            }
-            this.hook[name].splice(idx, 0, fn);
-        } else {
-            this.hook[name].push(fn);
-        }
-    }),
-    removeHook : confFn({
-        read : false
-    },
-    function (name, idx) {
-        var result;
-        if (Object.prototype.toString.call(name) !== '[object String]') {
-            throw new Error('The removeHook setting must be passed a hookName [ string ] and an index [ integer ]');
-        }
-        checkHookName(this.hook, name);
-        if (isNaN(filterIndex(idx.toString()))) {
-            throw new Error('The removeHook index value is invalid.');
-        }
-        result = this.hook[name].splice(idx, 1)[0];
-        if (result === undefined) {
-            throw new Error('The removeHook index does not match an item in the list.');
-        }
-        return {
-            passThrough : true,
-            unaltered : true,
-            value : result
-        };
-    }),
-    promise : confFn(function (name, quiet) {
-        var lib, n, valid, deferred;
-        switch (Object.prototype.toString.call(name)) {
-            case '[object Undefined]': {
-                return {
-                    passThrough : true,
-                    value : this.promise.name
-                };
-            }
-            case '[object String]': {
-                try {
-                    n = name;
-                    lib = require(name);
-                } catch (e) {
-                    if (!quiet) {
-                        configurations.noPromise.call(this);
-                        throw new Error('Could not load the [ p ] promise library.');
-                    }
-                }
-                break;
-            }
-            default: {
-                n = '<custom>';
-                lib = name;
-            }
-        }
-        valid = (Object.prototype.toString.call(lib) === '[object Function]' || Object.prototype.toString.call(lib) === '[object Object]');
-        valid = (valid && Object.prototype.toString.call(lib.defer) === '[object Function]');
-        if (valid) {
-            deferred = lib.defer();
-        }
-        valid = (valid && Object.prototype.toString.call(deferred) === '[object Object]');
-        valid = (valid && Object.prototype.toString.call(deferred.promise) !== '[object Undefined]');
-        valid = (valid && Object.prototype.toString.call(deferred.resolve) === '[object Function]');
-        valid = (valid && Object.prototype.toString.call(deferred.reject) === '[object Function]');
-        if (valid) {
-            this.promise.name = n;
-            this.promise.library = lib;
-        } else {
-            configurations.noPromise.call(this);
-            if (!quiet) {
-                throw new Error('The supplied custom promise library does not meet the required interface.');
-            }
-        }
-    }),
-    noPromise : confFn({
-        read : false
-    }, function () {
-        this.promise = {};
-    })
-};
-
 function internalApply (fn) {
     var ctr, len, args = [], argsObject;
     for (ctr = 1, len = arguments.length - 1; ctr < len; ctr++) {
@@ -379,73 +73,6 @@ function internalApply (fn) {
         args.push(argsObject[ctr]);
     }
     return fn.apply(null, args);
-}
-
-function config (purrl, option) {
-    var result, current, len, args;
-    if (option === undefined) {
-        result = {};
-        Object.keys(configurations)
-        .filter(function (option) { return configurations[option].read; })
-        .forEach(function (option) {
-            if (configurations[option].thisIsPurrl) {
-                current = configurations[option].call(purrl);
-            } else {
-                current = configurations[option].call(purrl[I]);
-            }
-            if (current.passThrough) {
-                current = current.value;
-            }
-            if (current !== undefined) {
-                current = JSON.stringify(current);
-                if (current !== '{}') {
-                    result[option] = JSON.parse(current);
-                }
-            }
-        });
-        return result;
-    }
-
-    switch (Object.prototype.toString.call(option)) {
-        case '[object String]': {
-            if (configurations.hasOwnProperty(option)) {
-                for (current = 2, len = arguments.length, args = []; current < len; current++) {
-                    args.push(arguments[current]);
-                }
-                if (configurations[option].thisIsPurrl) {
-                    result = configurations[option].apply(purrl, args);
-                } else {
-                    result = configurations[option].apply(purrl[I], args);
-                }
-                if (result !== undefined) {
-                    if (result.passThrough) {
-                        if (result.value === undefined || result.unaltered) {
-                            return result.value;
-                        }
-                        result = result.value;
-                    }
-                    return JSON.parse(JSON.stringify(result));
-                }
-                return purrl;
-            }
-
-            throw new Error('The configuration option [ ' + option + ' ] is not supported.');
-        }
-        case '[object Object]': {
-            if (option.protocol) {
-                purrl.config('protocol', option.protocol);
-            }
-            Object.keys(option).forEach(function (name) {
-                if (name !== 'protocol') {
-                    purrl.config(name, option[name]);
-                }
-            });
-            return purrl;
-        }
-        default: {
-            throw new Error('The [ config() ] method must be provided an [ option ] name with the correct settings or a configuration object.');
-        }
-    }
 }
 
 function header (purrl, key, value) {
@@ -648,6 +275,433 @@ function sendRequest (purrl, verb, body) {
     }
 }
 
+configurations = {
+    protocol : confFn({
+        supported : ['http', 'https']
+    },
+    function protocol (name) {
+        if (name === undefined) {
+            return this.protocol.name;
+        }
+        if (protocol.supported.indexOf(name) === -1) {
+            throw new Error('The [ ' + name + ' ] protocol is not supported.');
+        }
+        delete this.port;
+        this.protocol = {
+            name : name,
+            client : require(name)
+        };
+    }),
+    host : confFn(function (name) {
+        if (name === undefined) {
+            return {
+                passThrough : true,
+                value : this.host
+            };
+        }
+        if (Object.prototype.toString.call(name) !== '[object String]') {
+            throw new Error('The value [ ' + name + ' ] is invalid for host. It must be a string.');
+        }
+        this.host = name;
+    }),
+    port : confFn(function (num) {
+        if (num === undefined) {
+            return {
+                passThrough : true,
+                value : this.port
+            };
+        }
+        var setting = filterPort(num);
+        if (isNaN(setting) || setting < 1 || setting > 65535) {
+            throw new Error('The value [ ' + num + ' ] is not a valid port number.');
+        }
+        this.port = setting;
+    }),
+    param : confFn(function (key, value) {
+        if (key === undefined) {
+            return this.param;
+        }
+        switch (Object.prototype.toString.call(key)) {
+            case '[object String]': {
+                if (value === undefined) {
+                    return {
+                        passThrough : true,
+                        value : this.param[key]
+                    };
+                }
+                this.param[key] = value;
+                break;
+            }
+            case '[object Object]': {
+                Object.keys(key).forEach(function (paramKey) {
+                    this.param[paramKey] = key[paramKey];
+                }, this);
+                break;
+            }
+            default: {
+                throw new Error('The param setting must be [ key ] and [ value ] or a [ param ] object.');
+            }
+        }
+    }),
+    removeParam : confFn({
+        read : false
+    },
+    function (key) {
+        if (key === undefined) {
+            throw new Error('The removeParam setting must be passed a param key [ string ]');
+        }
+        delete this.param[key];
+    }),
+    header : confFn(function (key, value) {
+        if (key === undefined) {
+            return this.header;
+        }
+        switch (Object.prototype.toString.call(key)) {
+            case '[object String]': {
+                if (value === undefined) {
+                    return {
+                        passThrough : true,
+                        value : this.header[key]
+                    };
+                }
+                this.header[key] = value;
+                break;
+            }
+            case '[object Object]': {
+                Object.keys(key).forEach(function (headerKey) {
+                    this.header[headerKey] = key[headerKey];
+                }, this);
+                break;
+            }
+            default : {
+                throw new Error('The header setting must be [ key ] and [ value ] or a [ header ] object.');
+            }
+        }
+    }),
+    removeHeader : confFn({
+        read : false
+    },
+    function (key) {
+        if (key === undefined) {
+            throw new Error('The removeHeader setting must be passed a header key [ string ]');
+        }
+        delete this.header[key];
+    }),
+    pathElement : confFn({
+        thisIsPurrl : true
+    }, function pathElement (key, value) {
+        var self = this, internal = self[I];
+        switch (Object.prototype.toString.call(key)) {
+            case '[object Undefined]': {
+                return internal.pathElement;
+            }
+            case '[object String]': {
+                switch (Object.prototype.toString.call(value)) {
+                    case '[object Undefined]': {
+                        return {
+                            passThrough : true,
+                            value : internal.pathElement[key]
+                        };
+                    }
+                    case '[object Array]': {
+                        if (Object.getOwnPropertyDescriptor(self, key) !== undefined && !internal.pathElement.hasOwnProperty(key)) {
+                            throw new Error('The pathElement [ get ] conflicts with another property.');
+                        }
+                        internal.pathElement[key] = value.map(function (item) {
+                            return PlaceHolder.createOrPassthrough(item);
+                        });
+                        Object.defineProperty(self, key, {
+                            configurable : true,
+                            enumerable : true,
+                            get : function () {
+                                Array.prototype.push.apply(internal.path, internal.pathElement[key]);
+                                return self;
+                            }
+                        });
+                        break;
+                    }
+                    default: {
+                        return pathElement.call(self, key, [value]);
+                    }
+                }
+                break;
+            }
+            case '[object Object]': {
+                Object.keys(key).forEach(function (name) {
+                    pathElement.call(self, name, key[name]);
+                });
+                break;
+            }
+            default: {
+                throw new Error('The pathElement setting must be [ key ] and [ value ] or a [ pathElement ] object.');
+            }
+        }
+    }),
+    removePathElement : confFn({
+        thisIsPurrl : true,
+        read : false
+    },
+    function (key) {
+        if (key === undefined) {
+            throw new Error('The removePathElement setting must be passed a pathElement key [ string ]');
+        }
+        if (this[I].pathElement.hasOwnProperty(key)) {
+            delete this[I].pathElement[key];
+            delete this[key];
+        }
+    }),
+    verb : confFn({
+        thisIsPurrl : true
+    },
+
+    function verb (name, value) {
+        var self = this, internal = this[I];
+        switch (Object.prototype.toString.call(name)) {
+            case '[object Undefined]': {
+                return internal.verb;
+            }
+            case '[object String]': {
+                switch (Object.prototype.toString.call(value)) {
+                    case '[object Undefined]': {
+                        return {
+                            passThrough : true,
+                            value : internal.verb[name]
+                        };
+                    }
+                    case '[object String]': {
+                        if (self[name] !== undefined && internal.verb[name] === undefined) {
+                            throw new Error('The verb [ ' + name + ' ] conflicts with another property.');
+                        }
+                        internal.verb[name] = value;
+                        self[name] = function () {
+                            return internalApply(sendRequest, self, internal.verb[name], arguments);
+                        };
+                        return;
+                    }
+                }
+                break;
+            }
+            case '[object Object]': {
+                Object.keys(name).forEach(function (key) {
+                    verb.call(self, key, name[key]);
+                });
+                return;
+            }
+        }
+        throw new Error('The verb setting must be [ key ] and a string [ value ] or a [ verb ] object.');
+    }),
+    removeVerb : confFn({
+        thisIsPurrl : true,
+        read : false
+    }, function (key) {
+        if (key === undefined) {
+            throw new Error('The removeVerb setting must be passed a verb key [ string ]');
+        }
+        if (this[I].verb[key]) {
+            delete this[I].verb[key];
+            delete this[key];
+        }
+    }),
+    hook : confFn(function hook (key, value) {
+        var self = this, result;
+        switch (Object.prototype.toString.call(key)) {
+            case '[object Undefined]': {
+                result = {};
+                Object.keys(self.hook).forEach(function (key) {
+                    var list = hook.call(self, key);
+                    if (list.length > 0) {
+                        result[key] = list;
+                    }
+                });
+                return result;
+            }
+            case '[object String]': {
+                checkHookName(self.hook, key);
+                switch (Object.prototype.toString.call(value)) {
+                    case '[object Undefined]': {
+                        return self.hook[key].map(function (fn) { return fn.toString(); });
+                    }
+                    case '[object Array]': {
+                        if (!value.every(function (item) { return Object.prototype.toString.call(item) === '[object Function]'; })) {
+                            throw new Error('Error setting hook named [ ' + key + ' ]. The value must be either a [ function ] or an [ array ] of functions.');
+                        }
+                        self.hook[key] = value;
+                        break;
+                    }
+                    default: {
+                        return hook.call(self, key, [value]);
+                    }
+                }
+                break;
+            }
+            case '[object Object]': {
+                Object.keys(key).forEach(function (name) {
+                    hook.call(self, name, key[name]);
+                });
+                break;
+            }
+            default: {
+                throw new Error('The hook setting must be a recognized [ key ] with either a [ function ] or an [ array ] of functions or a [ hook ] object.');
+            }
+        }
+    }),
+    addHook : confFn({
+        read : false
+    }, function (name, fn, idx) {
+        if (Object.prototype.toString.call(name) !== '[object String]' || Object.prototype.toString.call(fn) !== '[object Function]') {
+            throw new Error('The addHook setting must be passed a hookName [ string ], a value [ function ], and an optional index [ integer ]');
+        }
+        checkHookName(this.hook, name);
+        if (idx !== undefined) {
+            if (isNaN(filterIndex(idx.toString()))) {
+                throw new Error('The addHook index value is invalid.');
+            }
+            this.hook[name].splice(idx, 0, fn);
+        } else {
+            this.hook[name].push(fn);
+        }
+    }),
+    removeHook : confFn({
+        read : false
+    },
+    function (name, idx) {
+        var result;
+        if (Object.prototype.toString.call(name) !== '[object String]') {
+            throw new Error('The removeHook setting must be passed a hookName [ string ] and an index [ integer ]');
+        }
+        checkHookName(this.hook, name);
+        if (isNaN(filterIndex(idx.toString()))) {
+            throw new Error('The removeHook index value is invalid.');
+        }
+        result = this.hook[name].splice(idx, 1)[0];
+        if (result === undefined) {
+            throw new Error('The removeHook index does not match an item in the list.');
+        }
+        return {
+            passThrough : true,
+            unaltered : true,
+            value : result
+        };
+    }),
+    promise : confFn(function (name, quiet) {
+        var lib, n, valid, deferred;
+        switch (Object.prototype.toString.call(name)) {
+            case '[object Undefined]': {
+                return {
+                    passThrough : true,
+                    value : this.promise.name
+                };
+            }
+            case '[object String]': {
+                try {
+                    n = name;
+                    lib = require(name);
+                } catch (e) {
+                    if (!quiet) {
+                        configurations.noPromise.call(this);
+                        throw new Error('Could not load the [ p ] promise library.');
+                    }
+                }
+                break;
+            }
+            default: {
+                n = '<custom>';
+                lib = name;
+            }
+        }
+        valid = (Object.prototype.toString.call(lib) === '[object Function]' || Object.prototype.toString.call(lib) === '[object Object]');
+        valid = (valid && Object.prototype.toString.call(lib.defer) === '[object Function]');
+        if (valid) {
+            deferred = lib.defer();
+        }
+        valid = (valid && Object.prototype.toString.call(deferred) === '[object Object]');
+        valid = (valid && Object.prototype.toString.call(deferred.promise) !== '[object Undefined]');
+        valid = (valid && Object.prototype.toString.call(deferred.resolve) === '[object Function]');
+        valid = (valid && Object.prototype.toString.call(deferred.reject) === '[object Function]');
+        if (valid) {
+            this.promise.name = n;
+            this.promise.library = lib;
+        } else {
+            configurations.noPromise.call(this);
+            if (!quiet) {
+                throw new Error('The supplied custom promise library does not meet the required interface.');
+            }
+        }
+    }),
+    noPromise : confFn({
+        read : false
+    }, function () {
+        this.promise = {};
+    })
+};
+
+function config (purrl, option) {
+    var result, current, len, args;
+    if (option === undefined) {
+        result = {};
+        Object.keys(configurations)
+        .filter(function (option) { return configurations[option].read; })
+        .forEach(function (option) {
+            if (configurations[option].thisIsPurrl) {
+                current = configurations[option].call(purrl);
+            } else {
+                current = configurations[option].call(purrl[I]);
+            }
+            if (current.passThrough) {
+                current = current.value;
+            }
+            if (current !== undefined) {
+                current = JSON.stringify(current);
+                if (current !== '{}') {
+                    result[option] = JSON.parse(current);
+                }
+            }
+        });
+        return result;
+    }
+
+    switch (Object.prototype.toString.call(option)) {
+        case '[object String]': {
+            if (configurations.hasOwnProperty(option)) {
+                for (current = 2, len = arguments.length, args = []; current < len; current++) {
+                    args.push(arguments[current]);
+                }
+                if (configurations[option].thisIsPurrl) {
+                    result = configurations[option].apply(purrl, args);
+                } else {
+                    result = configurations[option].apply(purrl[I], args);
+                }
+                if (result !== undefined) {
+                    if (result.passThrough) {
+                        if (result.value === undefined || result.unaltered) {
+                            return result.value;
+                        }
+                        result = result.value;
+                    }
+                    return JSON.parse(JSON.stringify(result));
+                }
+                return purrl;
+            }
+
+            throw new Error('The configuration option [ ' + option + ' ] is not supported.');
+        }
+        case '[object Object]': {
+            if (option.protocol) {
+                purrl.config('protocol', option.protocol);
+            }
+            Object.keys(option).forEach(function (name) {
+                if (name !== 'protocol') {
+                    purrl.config(name, option[name]);
+                }
+            });
+            return purrl;
+        }
+        default: {
+            throw new Error('The [ config() ] method must be provided an [ option ] name with the correct settings or a configuration object.');
+        }
+    }
+}
+
 placeholder = {
     nonNamed : function (segment, index, list) {
         if (segment instanceof PlaceHolder && !segment.named) {
@@ -711,7 +765,8 @@ function createPurrl () {
                 onData : [],
                 onBody : []
             },
-            promise : {}
+            promise : {},
+            verb : {}
         }
     });
 
@@ -746,32 +801,18 @@ function attachMethods (purrl) {
     purrl.toUrl = function () {
         return internalApply(buildUrl, purrl, arguments);
     };
-
-    purrl.get = function () {
-        return internalApply(sendRequest, purrl, 'GET', arguments);
-    };
-
-    purrl.post = function () {
-        return internalApply(sendRequest, purrl, 'POST', arguments);
-    };
-
-    purrl.put = function () {
-        return internalApply(sendRequest, purrl, 'PUT', arguments);
-    };
-
-    purrl.patch = function () {
-        return internalApply(sendRequest, purrl, 'PATCH', arguments);
-    };
-
-    purrl.delete = function () {
-        return internalApply(sendRequest, purrl, 'DELETE', arguments);
-    };
 }
 
 function configure (purrl, config) {
     purrl
     .config({
         protocol : 'http',
+        verb : {
+            get : 'GET',
+            post : 'POST',
+            put : 'PUT',
+            delete : 'DELETE'
+        },
         hook : {
             onRequest : function (context) {
                 context.getRequestContext().request = context.request;
