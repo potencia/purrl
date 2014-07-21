@@ -119,55 +119,38 @@ describe('PURRL', function () {
 
             describe('when some of the items in the object are invalid', function () {
                 it('should throw an error on the first unsupported configuration', function () {
-                    try {
+                    expect(function () {
                         purrl.config({
                             protocol : 'http',
                             wazIsConfigThingy : 'someSetting'
                         });
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The configuration option [ wazIsConfigThingy ] is not supported.');
-                    }
+                    }).to.throw(Error, 'The configuration option [ wazIsConfigThingy ] is not supported.');
                 });
 
                 it('should throw an error on the first invalid value', function () {
-                    try {
+                    expect(function () {
                         purrl.config({
                             protocol : 'http',
                             port : 52.89
                         });
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The value [ 52.89 ] is not a valid port number.');
-                    }
+                    }).to.throw(Error, 'The value [ 52.89 ] is not a valid port number.');
                 });
             });
         });
 
         describe('when called with neither an option name or a configuration object', function () {
             it('should throw an error', function () {
-                try {
+                expect(function () {
                     purrl.config([]);
-                    expect(true, 'An error should have been thrown').to.be.false;
-                } catch (error) {
-                    expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to
-                    .equal('The [ config() ] method must be provided an [ option ] name with the correct settings or a configuration object.');
-                }
+                }).to.throw(Error, 'The [ config() ] method must be provided an [ option ] name with the correct settings or a configuration object.');
             });
         });
 
         describe('when called with an unsupported configuration option', function () {
             it('should throw an error', function () {
-                try {
+                expect(function () {
                     purrl.config('wazIsConfigThingy');
-                    expect(true, 'An error should have been thrown').to.be.false;
-                } catch (error) {
-                    expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to.equal('The configuration option [ wazIsConfigThingy ] is not supported.');
-                }
+                }).to.throw(Error, 'The configuration option [ wazIsConfigThingy ] is not supported.');
             });
         });
 
@@ -180,13 +163,9 @@ describe('PURRL', function () {
 
             describe('when passed an invalid setting', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('protocol', 'SPEEDY');
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The [ SPEEDY ] protocol is not supported.');
-                    }
+                    }).to.throw(Error, 'The [ SPEEDY ] protocol is not supported.');
                 });
             });
 
@@ -234,13 +213,9 @@ describe('PURRL', function () {
 
             describe('when passed a non-string setting', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('host', 5);
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The value [ 5 ] is invalid for host. It must be a string.');
-                    }
+                    }).to.throw(Error, 'The value [ 5 ] is invalid for host. It must be a string.');
                 });
             });
 
@@ -266,36 +241,24 @@ describe('PURRL', function () {
 
             describe('when passed an invalid setting', function () {
                 it('should throw an error for too small a port', function () {
-                    try {
+                    expect(function () {
                         purrl.config('port', 0);
                         console.dir(purrl.config('port'));
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The value [ 0 ] is not a valid port number.');
-                    }
+                    }).to.throw(Error, 'The value [ 0 ] is not a valid port number.');
                 });
 
                 it('should throw an error for too large a port', function () {
-                    try {
+                    expect(function () {
                         purrl.config('port', 65536);
                         console.dir(purrl.config('port'));
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The value [ 65536 ] is not a valid port number.');
-                    }
+                    }).to.throw(Error, 'The value [ 65536 ] is not a valid port number.');
                 });
 
                 it('should throw an error for non-integer', function () {
-                    try {
+                    expect(function () {
                         purrl.config('port', '56.4');
                         console.dir(purrl.config('port'));
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The value [ 56.4 ] is not a valid port number.');
-                    }
+                    }).to.throw(Error, 'The value [ 56.4 ] is not a valid port number.');
                 });
             });
 
@@ -332,13 +295,9 @@ describe('PURRL', function () {
 
             describe('when passed neither a key name or a param object', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('param', []);
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The param setting must be [ key ] and [ value ] or a [ param ] object.');
-                    }
+                    }).to.throw(Error, 'The param setting must be [ key ] and [ value ] or a [ param ] object.');
                 });
             });
 
@@ -390,13 +349,9 @@ describe('PURRL', function () {
         describe('option [ removeParam ]', function () {
             describe('when passed no param key', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('removeParam');
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The removeParam setting must be passed a param key [ string ]');
-                    }
+                    }).to.throw(Error, 'The removeParam setting must be passed a param key [ string ]');
                 });
             });
 
@@ -432,13 +387,9 @@ describe('PURRL', function () {
 
             describe('when passed neither a key name or a header object', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('header', []);
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The header setting must be [ key ] and [ value ] or a [ header ] object.');
-                    }
+                    }).to.throw(Error, 'The header setting must be [ key ] and [ value ] or a [ header ] object.');
                 });
             });
 
@@ -490,13 +441,9 @@ describe('PURRL', function () {
         describe('option [ removeHeader ]', function () {
             describe('when passed no header key', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('removeHeader');
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The removeHeader setting must be passed a header key [ string ]');
-                    }
+                    }).to.throw(Error, 'The removeHeader setting must be passed a header key [ string ]');
                 });
             });
 
@@ -535,13 +482,9 @@ describe('PURRL', function () {
 
             describe('when passed neither a key name or a pathElement object', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('pathElement', []);
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The pathElement setting must be [ key ] and [ value ] or a [ pathElement ] object.');
-                    }
+                    }).to.throw(Error, 'The pathElement setting must be [ key ] and [ value ] or a [ pathElement ] object.');
                 });
             });
 
@@ -635,13 +578,9 @@ describe('PURRL', function () {
 
             describe('when the key name is the same as an existing purrl property that is not a custom path element', function () {
                 it('should throw an exception', function () {
-                    try {
+                    expect(function () {
                         purrl.config('pathElement', 'get', 'get');
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The pathElement [ get ] conflicts with another property.');
-                    }
+                    }).to.throw(Error, 'The pathElement [ get ] conflicts with another property.');
                 });
             });
 
@@ -691,13 +630,9 @@ describe('PURRL', function () {
         describe('option [ removePathElement ]', function () {
             describe('when passed no pathElement key', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('removePathElement');
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The removePathElement setting must be passed a pathElement key [ string ]');
-                    }
+                    }).to.throw(Error, 'The removePathElement setting must be passed a pathElement key [ string ]');
                 });
             });
 
@@ -770,26 +705,18 @@ describe('PURRL', function () {
 
             describe('when passed an invalid key', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('hook', []);
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal(
-                        'The hook setting must be a recognized [ key ] with either a [ function ] or an [ array ] of functions or a [ hook ] object.');
-                    }
+                    }).to.throw(Error,
+                    'The hook setting must be a recognized [ key ] with either a [ function ] or an [ array ] of functions or a [ hook ] object.');
                 });
             });
 
             describe('when passed an invalid hook name', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('hook', 'notAHook');
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('Unrecognized hook name [ notAHook ]');
-                    }
+                    }).to.throw(Error, 'Unrecognized hook name [ notAHook ]');
                 });
             });
 
@@ -823,27 +750,17 @@ describe('PURRL', function () {
 
             describe('when passed a valid key and an [ array ] of mixed values', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('hook', 'onData', [onData1, true]);
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal(
-                        'Error setting hook named [ onData ]. The value must be either a [ function ] or an [ array ] of functions.');
-                    }
+                    }).to.throw(Error, 'Error setting hook named [ onData ]. The value must be either a [ function ] or an [ array ] of functions.');
                 });
             });
 
             describe('when passed a valid key and an invalid value', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('hook', 'onData', true);
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal(
-                        'Error setting hook named [ onData ]. The value must be either a [ function ] or an [ array ] of functions.');
-                    }
+                    }).to.throw(Error, 'Error setting hook named [ onData ]. The value must be either a [ function ] or an [ array ] of functions.');
                 });
             });
 
@@ -874,39 +791,25 @@ describe('PURRL', function () {
         describe('option [ addHook ]', function () {
             describe('when passed no hookName', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('addHook');
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal(
-                        'The addHook setting must be passed a hookName [ string ], a value [ function ], and an optional index [ integer ]');
-                    }
+                    }).to.throw(Error, 'The addHook setting must be passed a hookName [ string ], a value [ function ], and an optional index [ integer ]');
                 });
             });
 
             describe('when passed no value', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('addHook', 'onData');
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal(
-                        'The addHook setting must be passed a hookName [ string ], a value [ function ], and an optional index [ integer ]');
-                    }
+                    }).to.throw(Error, 'The addHook setting must be passed a hookName [ string ], a value [ function ], and an optional index [ integer ]');
                 });
             });
 
             describe('when passed an invalid hookName', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('addHook', 'notAHook', function () {});
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('Unrecognized hook name [ notAHook ]');
-                    }
+                    }).to.throw(Error, 'Unrecognized hook name [ notAHook ]');
                 });
             });
 
@@ -925,13 +828,9 @@ describe('PURRL', function () {
 
             describe('when passed a valid hookName and function and an invalid index', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('addHook', 'onData', onData1, 56.23);
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The addHook index value is invalid.');
-                    }
+                    }).to.throw(Error, 'The addHook index value is invalid.');
                 });
             });
 
@@ -994,25 +893,17 @@ describe('PURRL', function () {
         describe('option [ removeHook ]', function () {
             describe('when passed no hookName', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('removeHook');
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The removeHook setting must be passed a hookName [ string ] and an index [ integer ]');
-                    }
+                    }).to.throw(Error, 'The removeHook setting must be passed a hookName [ string ] and an index [ integer ]');
                 });
             });
 
             describe('when passed an invalid hookName', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('removeHook', 'notAHook', function () {});
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('Unrecognized hook name [ notAHook ]');
-                    }
+                    }).to.throw(Error, 'Unrecognized hook name [ notAHook ]');
                 });
             });
 
@@ -1040,26 +931,18 @@ describe('PURRL', function () {
 
             describe('when passed a valid hookName and an invalid index', function () {
                 it('should throw an error', function () {
-                    try {
+                    expect(function () {
                         purrl.config('removeHook', 'onData', 56.23);
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The removeHook index value is invalid.');
-                    }
+                    }).to.throw(Error, 'The removeHook index value is invalid.');
                 });
             });
 
             describe('when passed a valid hookName and valid index but the index does not match a item in the list', function () {
                 it('should throw an error', function () {
                     purrl.config('hook', 'onData', [onData1, onData2]);
-                    try {
+                    expect(function () {
                         purrl.config('removeHook', 'onData', 100);
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The removeHook index does not match an item in the list.');
-                    }
+                    }).to.throw(Error, 'The removeHook index does not match an item in the list.');
                 });
             });
         });
@@ -1079,108 +962,76 @@ describe('PURRL', function () {
                 });
 
                 it('should throw an error on missing named library', function () {
-                    try {
+                    expect(function () {
                         purrl.config('promise', 'p');
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('Could not load the [ p ] promise library.');
-                        expect(purrl.config('promise')).to.be.undefined;
-                    }
+                    }).to.throw(Error, 'Could not load the [ p ] promise library.');
+                    expect(purrl.config('promise')).to.be.undefined;
                 });
 
                 it('should throw an error on non object or non function passed as library', function () {
-                    try {
+                    expect(function () {
                         purrl.config('promise', []);
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The supplied custom promise library does not meet the required interface.');
-                        expect(purrl.config('promise')).to.be.undefined;
-                    }
+                    }).to.throw(Error, 'The supplied custom promise library does not meet the required interface.');
+                    expect(purrl.config('promise')).to.be.undefined;
                 });
 
                 it('should throw an error on library object without defer function', function () {
-                    try {
+                    expect(function () {
                         purrl.config('promise', {});
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The supplied custom promise library does not meet the required interface.');
-                        expect(purrl.config('promise')).to.be.undefined;
-                    }
+                    }).to.throw(Error, 'The supplied custom promise library does not meet the required interface.');
+                    expect(purrl.config('promise')).to.be.undefined;
                 });
 
                 it('should throw an error on library function without defer function', function () {
-                    try {
+                    expect(function () {
                         purrl.config('promise', function () {});
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The supplied custom promise library does not meet the required interface.');
-                        expect(purrl.config('promise')).to.be.undefined;
-                    }
+                    }).to.throw(Error, 'The supplied custom promise library does not meet the required interface.');
+                    expect(purrl.config('promise')).to.be.undefined;
                 });
 
                 it('should throw an error on library object with defer that does not return an object', function () {
-                    try {
+                    expect(function () {
                         purrl.config('promise', {
                             defer : sinon.stub()
                         });
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The supplied custom promise library does not meet the required interface.');
-                        expect(purrl.config('promise')).to.be.undefined;
-                    }
+                    }).to.throw(Error, 'The supplied custom promise library does not meet the required interface.');
+                    expect(purrl.config('promise')).to.be.undefined;
                 });
 
                 it('should throw an error on library object when defer returns an object without the promise property', function () {
-                    try {
+                    expect(function () {
                         purrl.config('promise', {
                             defer : sinon.stub().returns({
                                 resolve : function () {},
                                 reject : function () {}
                             })
                         });
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The supplied custom promise library does not meet the required interface.');
-                        expect(purrl.config('promise')).to.be.undefined;
-                    }
+                    }).to.throw(Error, 'The supplied custom promise library does not meet the required interface.');
+                    expect(purrl.config('promise')).to.be.undefined;
                 });
 
                 it('should throw an error on library object when defer returns an object without the resolve function', function () {
-                    try {
+                    expect(function () {
                         purrl.config('promise', {
                             defer : sinon.stub().returns({
                                 promise : {},
                                 reject : function () {}
                             })
                         });
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The supplied custom promise library does not meet the required interface.');
-                        expect(purrl.config('promise')).to.be.undefined;
-                    }
+                    }).to.throw(Error, 'The supplied custom promise library does not meet the required interface.');
+                    expect(purrl.config('promise')).to.be.undefined;
                 });
 
                 it('should throw an error on library object when defer returns an object without the reject function', function () {
-                    try {
+                    expect(function () {
                         purrl.config('promise', {
                             defer : sinon.stub().returns({
                                 promise : true,
                                 resolve : function () {}
                             })
                         });
-                        expect(true, 'An error should have been thrown').to.be.false;
-                    } catch (error) {
-                        expect(error).to.be.an.instanceOf(Error);
-                        expect(error.message).to.equal('The supplied custom promise library does not meet the required interface.');
-                        expect(purrl.config('promise')).to.be.undefined;
-                    }
+                    }).to.throw(Error, 'The supplied custom promise library does not meet the required interface.');
+                    expect(purrl.config('promise')).to.be.undefined;
                 });
             });
 
@@ -1278,13 +1129,9 @@ describe('PURRL', function () {
 
         describe('when called with an invalid hook name', function () {
             it('should throw an error', function () {
-                try {
+                expect(function () {
                     PURRL.hook(purrl, 'notAHook');
-                    expect(true, 'An error should have been thrown').to.be.false;
-                } catch (error) {
-                    expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to.equal('Unrecognized hook name [ notAHook ]');
-                }
+                }).to.throw(Error, 'Unrecognized hook name [ notAHook ]');
             });
         });
 
@@ -1378,37 +1225,25 @@ describe('PURRL', function () {
     describe('.header()', function () {
         describe('when called with no arguments', function () {
             it('should throw an error', function () {
-                try {
+                expect(function () {
                     purrl.header();
-                    expect(true, 'An error should have been thrown').to.be.false;
-                } catch (error) {
-                    expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to.equal('purrl.header() requires a [ key ] string and a [ value ]');
-                }
+                }).to.throw(Error, 'purrl.header() requires a [ key ] string and a [ value ]');
             });
         });
 
         describe('when called with only a key', function () {
             it('should throw an error', function () {
-                try {
+                expect(function () {
                     purrl.header('accepts');
-                    expect(true, 'An error should have been thrown').to.be.false;
-                } catch (error) {
-                    expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to.equal('purrl.header() requires a [ key ] string and a [ value ]');
-                }
+                }).to.throw(Error, 'purrl.header() requires a [ key ] string and a [ value ]');
             });
         });
 
         describe('when called with a non-string', function () {
             it('should throw an error', function () {
-                try {
+                expect(function () {
                     purrl.header([], 1);
-                    expect(true, 'An error should have been thrown').to.be.false;
-                } catch (error) {
-                    expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to.equal('purrl.header() requires a [ key ] string and a [ value ]');
-                }
+                }).to.throw(Error, 'purrl.header() requires a [ key ] string and a [ value ]');
             });
         });
 
@@ -1429,24 +1264,16 @@ describe('PURRL', function () {
     describe('.noHeader()', function () {
         describe('when called with no arguments', function () {
             it('should throw an error', function () {
-                try {
+                expect(function () {
                     purrl.noHeader();
-                    expect(true, 'An error should have been thrown').to.be.false;
-                } catch (error) {
-                    expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to.equal('purrl.noHeader() requires a [ key ] string');
-                }
+                }).to.throw(Error, 'purrl.noHeader() requires a [ key ] string');
             });
         });
         describe('when called with a non-string key', function () {
             it('should throw an error', function () {
-                try {
+                expect(function () {
                     purrl.noHeader([]);
-                    expect(true, 'An error should have been thrown').to.be.false;
-                } catch (error) {
-                    expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to.equal('purrl.noHeader() requires a [ key ] string');
-                }
+                }).to.throw(Error, 'purrl.noHeader() requires a [ key ] string');
             });
         });
 
@@ -1467,37 +1294,25 @@ describe('PURRL', function () {
     describe('.param()', function () {
         describe('when called with no arguments', function () {
             it('should throw an error', function () {
-                try {
+                expect(function () {
                     purrl.param();
-                    expect(true, 'An error should have been thrown').to.be.false;
-                } catch (error) {
-                    expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to.equal('purrl.param() requires a [ key ] string and a [ value ]');
-                }
+                }).to.throw(Error, 'purrl.param() requires a [ key ] string and a [ value ]');
             });
         });
 
         describe('when called with only a key', function () {
             it('should throw an error', function () {
-                try {
+                expect(function () {
                     purrl.param('key');
-                    expect(true, 'An error should have been thrown').to.be.false;
-                } catch (error) {
-                    expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to.equal('purrl.param() requires a [ key ] string and a [ value ]');
-                }
+                }).to.throw(Error, 'purrl.param() requires a [ key ] string and a [ value ]');
             });
         });
 
         describe('when called with only a non-string key', function () {
             it('should throw an error', function () {
-                try {
+                expect(function () {
                     purrl.param([], 1);
-                    expect(true, 'An error should have been thrown').to.be.false;
-                } catch (error) {
-                    expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to.equal('purrl.param() requires a [ key ] string and a [ value ]');
-                }
+                }).to.throw(Error, 'purrl.param() requires a [ key ] string and a [ value ]');
             });
         });
 
@@ -1518,25 +1333,17 @@ describe('PURRL', function () {
     describe('.noParam()', function () {
         describe('when called with no arguments', function () {
             it('should throw an error', function () {
-                try {
+                expect(function () {
                     purrl.noParam();
-                    expect(true, 'An error should have been thrown').to.be.false;
-                } catch (error) {
-                    expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to.equal('purrl.noParam() requires a [ key ] string');
-                }
+                }).to.throw(Error, 'purrl.noParam() requires a [ key ] string');
             });
         });
 
         describe('when called with a non-string key', function () {
             it('should throw an error', function () {
-                try {
+                expect(function () {
                     purrl.noParam([]);
-                    expect(true, 'An error should have been thrown').to.be.false;
-                } catch (error) {
-                    expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to.equal('purrl.noParam() requires a [ key ] string');
-                }
+                }).to.throw(Error, 'purrl.noParam() requires a [ key ] string');
             });
         });
 
@@ -1595,14 +1402,10 @@ describe('PURRL', function () {
 
         it('should throw an error when [ host ] is not configured', function () {
             delete purrl[' internal'].host;
-            try {
+            expect(function () {
                 purrl(1).toUrl();
-                expect(true, 'An error should have been thrown').to.be.false;
-            } catch (error) {
-                expect(error).to.be.an.instanceOf(Error);
-                expect(error.message).to.equal('Cannot generate a URL. The host is not configured.');
-                expect(purrl[' internal'].path).to.deep.equal([]);
-            }
+            }).to.throw(Error, 'Cannot generate a URL. The host is not configured.');
+            expect(purrl[' internal'].path).to.deep.equal([]);
         });
 
         describe('when placeholders remain in the internal [ path ]', function () {
@@ -1611,24 +1414,18 @@ describe('PURRL', function () {
             });
 
             it('should throw an error', function () {
-                try {
+                expect(function () {
                     purrl.placeholder.toUrl();
-                    expect(true, 'An error should have been thrown').to.be.false;
-                } catch (error) {
-                    expect(error).to.be.an.instanceOf(Error);
-                    expect(error.message).to.equal('Cannot generate the URL path. Placeholders remain.');
-                    expect(purrl[' internal'].path).to.deep.equal([]);
-                }
+                }).to.throw(Error, 'Cannot generate the URL path. Placeholders remain.');
+                expect(purrl[' internal'].path).to.deep.equal([]);
             });
 
             it('should not call the [ beforePath ] hook', function () {
                 var beforePath = sinon.stub();
                 purrl.placeholder.config('hook', 'beforePath', beforePath);
-                try {
+                expect(function () {
                     purrl.toUrl();
-                } catch (error) {
-                    expect(error.message).to.equal('Cannot generate the URL path. Placeholders remain.');
-                }
+                }).to.throw(Error, 'Cannot generate the URL path. Placeholders remain.');
                 expect(beforePath.callCount).to.equal(0);
             });
         });
@@ -1755,14 +1552,10 @@ describe('PURRL', function () {
 
         it('should throw an error when [ host ] is not configured', function () {
             delete purrl[' internal'].host;
-            try {
+            expect(function () {
                 purrl(1).get();
-                expect(true, 'An error should have been thrown').to.be.false;
-            } catch (error) {
-                expect(error).to.be.an.instanceOf(Error);
-                expect(error.message).to.equal('Cannot send the request. The host is not configured.');
-                expect(purrl[' internal'].path).to.deep.equal([]);
-            }
+            }).to.throw(Error, 'Cannot send the request. The host is not configured.');
+            expect(purrl[' internal'].path).to.deep.equal([]);
         });
 
         it('should pass a correct options object to the protocol\'s [ request() ]', function () {
