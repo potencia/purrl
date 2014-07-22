@@ -46,5 +46,6 @@ session = repl.start({
 });
 
 session.context.PURRL = function (config) { return new PURRL().config(PURRL.defaultReplConfig).config(config); };
+session.context.PURRL.loadConfig = PURRL.loadConfig;
 session.context.purrl = new PURRL(PURRL.defaultReplConfig);
 

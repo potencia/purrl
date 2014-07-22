@@ -346,6 +346,50 @@ For a multi-value option, the named value is set.
 
     purrl.config('header', 'accept', 'application/json');
 
+#### PURRL.loadConfig(purrl, path) ####
+
+Loads a set of configuration options from the JSON file specified by `path` and applies them to `purrl`. Not all configuration options listed below are able to
+be used in a configuration loaded from JSON. See the individual options and the quick reference for which options are allowed.
+
+config.json
+
+    {
+        "protocol" : "https",
+        "noPromise" : true,
+        "host" : "example.com",
+        "port" : 8443,
+        "param" : {
+            "key" : "VALUE"
+        },
+        "header" : {
+            "content-type" : "application/json"
+        },
+        "pathElement" :  {
+            "acct" : ["accounts", {}],
+            "allAcct" : "accounts"
+        },
+        "verb" : {
+            "search" : "SEARCH"
+        },
+        "loadHooks" : "./hooks.js"
+    }
+
+hooks.js
+
+    exports.onBody = function onBody() { return "onBody"; };
+
+Somewhere in main.js
+
+    PURRL.loadConfig(purrl, './config.json');
+    purrl.allAcct.search(); // returns -> undefined
+      // Issues SEARCH to https://example.com:8443/accounts?key=VALUE
+      // with Content-Type: application/json as one of the headers
+    purrl.acct(1001).get(); // returns -> undefined
+      // Issues GET to https://example.com:8443/accounts/1001?key=VALUE
+      // with Content-Type: application/json as one of the headers
+    purrl.config('hook', 'onBody');
+      // returns ['function onBody() { return "onBody"; }']
+
 #### Configuration Options ####
 
 ##### protocol #####
@@ -353,6 +397,8 @@ For a multi-value option, the named value is set.
 Gets or sets the communication protocol used to make requests. Valid values are 'http' and 'https'. When setting the protocol, PURRL behind the scenes loads
 the appropriate client for use. This option is set to 'http' by default. When the protocol is set, any previous configuration of the port is undone so that if
 it is not set in the same request or a later request the protocol's default port will be used.
+
+JSON Configuration: Allowed
 
     purrl.config('protocol', 'https');
     purrl.config('protocol'); // returns -> 'https'
@@ -375,6 +421,8 @@ it is not set in the same request or a later request the protocol's default port
 
 Gets or sets the host name to send requests to. Any string is accepted. This option must be set before calling any verb methods.
 
+JSON Configuration: Allowed
+
     purrl.config('host', 'example.com');
     purrl.config('host'); // returns -> 'example.com'
 
@@ -382,6 +430,8 @@ Gets or sets the host name to send requests to. Any string is accepted. This opt
 
 Gets or sets the TCP port to send requests to. Integers between 1 and 65535 are accepted. If this option is not set, the default port for the configured
 protocol will be used by default. Port 80 for 'http', or port 443 for 'https'.
+
+JSON Configuration: Allowed
 
     purrl.config('port', -3); // error
     purrl.config('port', 8080);
@@ -392,6 +442,8 @@ protocol will be used by default. Port 80 for 'http', or port 443 for 'https'.
 Gets or sets header key / value pairs. Strings are accepted for both header names and header values. Headers set using this option are persistent. They are
 added to the request header for each request sent until they are removed (see the special `removeHeader` configuration option). To set a transient header (sent
 only for the current request) use the `purrl.header()` method.
+
+JSON Configuration: Allowed (Object form)
 
     purrl.config('header', {
         accept : 'application/json;text/xml;text/plain',
@@ -411,6 +463,8 @@ only for the current request) use the `purrl.header()` method.
 Removes a previously set header from the persistent header configuration. The header is identified by its name. It is *not* an error to attempt to remove a
 persistent header that is not set.
 
+JSON Configuration: Ignored
+
     // Set a header
     purrl.config('header', 'content-type', 'application/json');
     purrl.config('header', 'content-type'); // returns -> 'application/json'
@@ -427,6 +481,8 @@ persistent header that is not set.
 Gets or sets query parameter key / value pairs. Strings are accepted for both keys and values. Query parameters set using this option are persistent. They are
 added to the query string for each request sent until they are removed (see the special `removeParam` configuration option). To set a transient query parameter
 (sent only for the current request) use the `purrl.param()` method.
+
+JSON Configuration: Allowed (Object form)
 
     purrl.config('param', {
         key : 'WhoNeedsOne',
@@ -446,6 +502,8 @@ added to the query string for each request sent until they are removed (see the 
 Removes a previously set query parameter from the persistent query parameter configuration. The query parameter is identified by its key. It is *not* an error
 to attempt to remove a persistent query parameter that is not set.
 
+JSON Configuration: Ignored
+
     // Set a query parameter
     purrl.config('param', 'user', 'Sherlock');
     purrl.config('param', 'user'); // returns -> 'Sherlock'
@@ -461,6 +519,8 @@ to attempt to remove a persistent query parameter that is not set.
 
 Adds a custom path element property to the purrl object. Properties added using this configuration can be used to specify portions of the URL path for a
 request.
+
+JSON Configuration: Allowed (Object form, placeholders are fully supported)
 
     purrl.config('host', 'example.com');
     purrl.config('pathElement', 'api', 'api');
@@ -572,6 +632,8 @@ All placeholders must be filled with real values before a verb method is called 
 Removes a custom path element from the purrl object. The custom path element is identified by its name. It is *not* an error to attempt to remove a custom path
 element that is not set. If a valid property name that is not a custom path element property is supplied, the removal request is ignored.
 
+JSON Configuration: Ignored
+
     // Set a custom path element
     purrl.config('host', 'example.com');
     purrl.config('pathElement', 'accounts', 'accounts');
@@ -597,6 +659,8 @@ element that is not set. If a valid property name that is not a custom path elem
 
 Adds (or replaces) a verb method on the purrl object configured with the supplied HTTP method string. Properties added using this configuration can be used to
 issue HTTP requests using the configured HTTP method. This option can also be used to retrieve the currently configured HTTP method for a verb.
+
+JSON Configuration: Allowed (Object form)
 
     purrl.config('host', 'example.com');
     purrl.config('verb', 'search', 'SEARCH');
@@ -655,6 +719,8 @@ HTTP methods are as follows. PURRL makes no guarantees that any other HTTP metho
 Removes a verb method from the purrl object. The verb method is identified by its name. It is *not* an error to attempt to remove a verb method that is not set.
 If a valid property name that is not a verb method is supplied, the removal request is ignored.
 
+JSON Configuration: Ignored
+
     purrl.config('host', 'example.com');
     purrl.get(); // Issues a GET to http://example.com
 
@@ -679,6 +745,8 @@ be represented in JSON form. As a result of this, when setting a `hook` option, 
 a `hook` option, the string representation of each function in the chain will be returned. The hook option sets the entire function chain of the named hook, any
 previously set values are removed. See the special `addHook` and `removeHook` configuration options for the ability to append, insert, or remove specific
 functions from a hook chain. See the Available Hooks section below for a list of the hooks that are supported.
+
+JSON Configuration: Error
 
     purrl.config('hook', 'onBody', function onBody1() {});
       // Sets onBody1 as the sole function in the chain for the onBody hook
@@ -717,6 +785,8 @@ functions from a hook chain. See the Available Hooks section below for a list of
 
 Uses the node require() function to load a module and then uses the object exported from the module to set the `hook` option.
 
+JSON Configuration: Allowed
+
     /* hookModule.js */
 
     exports.onBody = function onBody4() {};
@@ -743,6 +813,8 @@ Uses the node require() function to load a module and then uses the object expor
 Adds a hook function into the named hook chain. When an index argument is *not* provided the function is appended to the end of the chain, when an index
 argument is provided the function is inserted at that position. See the Available Hooks section below for a list of the hooks that are supported.
 
+JSON Configuration: Error
+
     purrl.config('hook', 'onBody', function initialOnBody() {});
     purrl.config('hook', 'onBody'); // returns -> ['function initialOnBody() {}']
 
@@ -764,6 +836,8 @@ argument is provided the function is inserted at that position. See the Availabl
 ##### removeHook #####
 
 Removes a hook function at a given index from a the named hook chain.
+
+JSON Configuration: Error
 
     // Set functions in the onBody hook chain
     purrl.config('hook', 'onBody', [function onBody1() {}, function onBody2() {}]);
@@ -805,6 +879,8 @@ desire to reorder the functions in a hook's list.
 Sets the promise library for returning promises from the verb methods. By default this setting is preset to the [Q library](http://documentup.com/kriskowal/q/)
 which is an optional dependency so you don't need to do anything to get Q promises returned from the verb methods. If Q is not available, or if an invalid
 library is used for the `promise` option, then the promise option will be unset and verb methods will return `undefined`.
+
+JSON Configuration: Allowed (Only a library name may be used. Do not specify both `promise` and `noPromise` in the same JSON configuration.)
 
     purrl.config('host', 'example.com');
     purrl.config('promise', 'q'); // This isn't really needed as Q is set by default
@@ -848,6 +924,9 @@ If the library meets these criteria, then it can be used by PURRL as the promise
 Removes any set promise library from the configuration. When there is no promise library set, the verb methods return `undefined`. This option does not utilize
 any arguments.
 
+JSON Configuration: Allowed (For the JSON to be valid, you must set `noPromise` to some value. The actual value is ignored. Do not specify both `promise` and
+`noPromise` in the same JSON configuration.)
+
     purrl.config('host', 'example.com');
     purrl.config('noPromise');
     purrl.get(); // returns -> undefined
@@ -856,26 +935,28 @@ any arguments.
 
 <table>
   <thead><td><b>Option</b></td><td><b>Type</b></td><td><b>Access</b></td><td><b>Valid Names</b></td><td><b>Valid Values</b></td>
-         <td><b>Required</b></td></thead>
-  <tr><td><b>protocol</b></td><td>string</td><td>read/write</td><td></td><td>http, https</td><td>true, preset to 'http'</td></tr>
-  <tr><td><b>host</b></td><td>string</td><td>read/write</td><td></td><td></td><td>true</td></tr>
-  <tr><td><b>port</b></td><td>integer</td><td>read/write</td><td></td><td>1 - 65535</td><td></td></tr>
-  <tr><td><b>header</b></td><td>multi-value</td><td>read/write</td><td>any name</td><td>string values</td><td></td></tr>
-  <tr><td><b>removeHeader</b></td><td>special</td><td>write-only</td><td></td><td>header keys</td><td></td></tr>
-  <tr><td><b>param</b></td><td>multi-value</td><td>read/write</td><td>any name</td><td>string values</td><td></td></tr>
-  <tr><td><b>removeParam</b></td><td>special</td><td>write-only</td><td></td><td>query parameter keys</td><td></td></tr>
+         <td><b>Required</b></td><td><b>JSON configuration</b></td></thead>
+  <tr><td><b>protocol</b></td><td>string</td><td>read/write</td><td></td><td>http, https</td><td>true, preset to 'http'</td><td>OK</td></tr>
+  <tr><td><b>host</b></td><td>string</td><td>read/write</td><td></td><td></td><td>true</td><td>OK</td></tr>
+  <tr><td><b>port</b></td><td>integer</td><td>read/write</td><td></td><td>1 - 65535</td><td></td><td>OK</td></tr>
+  <tr><td><b>header</b></td><td>multi-value</td><td>read/write</td><td>any name</td><td>string values</td><td></td><td>OK</td></tr>
+  <tr><td><b>removeHeader</b></td><td>special</td><td>write-only</td><td></td><td>header keys</td><td></td><td>Ignored</td></tr>
+  <tr><td><b>param</b></td><td>multi-value</td><td>read/write</td><td>any name</td><td>string values</td><td></td><td>OK</td></tr>
+  <tr><td><b>removeParam</b></td><td>special</td><td>write-only</td><td></td><td>query parameter keys</td><td></td><td>Ignored</td></tr>
   <tr><td><b>pathElement</b></td><td>multi-value</td><td>read/write</td><td>Any valid, non-conflicting property name</td>
-      <td>value, placeholder or array of values and placeholders</td><td></td></tr>
-  <tr><td><b>removePathElement</b></td><td>special</td><td>write-only</td><td></td><td>path element property names</td><td></td></tr>
-  <tr><td><b>verb</b></td><td>multi-value</td><td>read/write</td><td>Any valid, non-conflicting method name</td><td>HTTP method string</td><td></td></tr>
-  <tr><td><b>removeVerb</b></td><td>special</td><td>write-only</td><td></td><td>verb method names</td><td></td></tr>
+      <td>value, placeholder or array of values and placeholders</td><td></td><td>OK</td></tr>
+  <tr><td><b>removePathElement</b></td><td>special</td><td>write-only</td><td></td><td>path element property names</td><td></td><td>Ignored</td></tr>
+  <tr><td><b>verb</b></td><td>multi-value</td><td>read/write</td><td>Any valid, non-conflicting method name</td><td>HTTP method string</td><td></td>
+      <td>OK</td></tr>
+  <tr><td><b>removeVerb</b></td><td>special</td><td>write-only</td><td></td><td>verb method names</td><td></td><td>Ignored</td></tr>
   <tr><td><b>hook</b></td><td>multi-value</td><td>read/write</td><td>See the Available Hooks section below</td><td>function or array of functions</td>
-      <td></td></tr>
-  <tr><td><b>loadHooks</b></td><td>special</td><td>write-only</td><td></td><td>valid module path</td><td></td></tr>
-  <tr><td><b>addHook</b></td><td>special</td><td>write-only</td><td>See the Available Hooks section below</td><td>function, optional index</td><td></td></tr>
-  <tr><td><b>removeHook</b></td><td>special</td><td>write-only</td><td>See the Available Hooks section below</td><td>index</td><td></td></tr>
-  <tr><td><b>promise</b></td><td>string or instantiated library</td><td>read/write</td><td></td><td>valid promise libraries</td><td></td></tr>
-  <tr><td><b>noPromise</b></td><td>special</td><td>write-only</td><td></td><td></td><td></td></tr>
+      <td></td><td>Error</td></tr>
+  <tr><td><b>loadHooks</b></td><td>special</td><td>write-only</td><td></td><td>valid module path</td><td></td><td>OK</td></tr>
+  <tr><td><b>addHook</b></td><td>special</td><td>write-only</td><td>See the Available Hooks section below</td><td>function, optional index</td><td></td>
+      <td>Error</td></tr>
+  <tr><td><b>removeHook</b></td><td>special</td><td>write-only</td><td>See the Available Hooks section below</td><td>index</td><td></td><td>Error</td></tr>
+  <tr><td><b>promise</b></td><td>string or instantiated library</td><td>read/write</td><td></td><td>valid promise libraries</td><td></td><td>OK</td></tr>
+  <tr><td><b>noPromise</b></td><td>special</td><td>write-only</td><td></td><td></td><td></td><td>OK</td></tr>
 </table>
 
 ### Hooks ###

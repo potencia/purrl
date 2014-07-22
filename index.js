@@ -58,6 +58,7 @@ function confFn (options) {
 
     function defaultsTo (test, defaultValue) { return test === undefined ? defaultValue : test; }
 
+    fn.load = defaultsTo(fn.load, true);
     fn.read = defaultsTo(fn.read, true);
     fn.thisIsPurrl = defaultsTo(fn.thisIsPurrl, false);
 
@@ -276,11 +277,18 @@ function sendRequest (purrl, verb, body) {
     }
 }
 
+function loadFromPath (path) {
+    if (path.indexOf('.') === 0) {
+        return require(fs.realpathSync(path));
+    } else {
+        return require(path);
+    }
+}
+
 configurations = {
     protocol : confFn({
         supported : ['http', 'https']
-    },
-    function protocol (name) {
+    }, function protocol (name) {
         if (name === undefined) {
             return this.protocol.name;
         }
@@ -345,9 +353,9 @@ configurations = {
         }
     }),
     removeParam : confFn({
+        load : false,
         read : false
-    },
-    function (key) {
+    }, function (key) {
         if (key === undefined) {
             throw new Error('The removeParam setting must be passed a param key [ string ]');
         }
@@ -380,9 +388,9 @@ configurations = {
         }
     }),
     removeHeader : confFn({
+        load : false,
         read : false
-    },
-    function (key) {
+    }, function (key) {
         if (key === undefined) {
             throw new Error('The removeHeader setting must be passed a header key [ string ]');
         }
@@ -440,9 +448,9 @@ configurations = {
     }),
     removePathElement : confFn({
         thisIsPurrl : true,
+        load : false,
         read : false
-    },
-    function (key) {
+    }, function (key) {
         if (key === undefined) {
             throw new Error('The removePathElement setting must be passed a pathElement key [ string ]');
         }
@@ -453,9 +461,7 @@ configurations = {
     }),
     verb : confFn({
         thisIsPurrl : true
-    },
-
-    function verb (name, value) {
+    }, function verb (name, value) {
         var self = this, internal = this[I];
         switch (Object.prototype.toString.call(name)) {
             case '[object Undefined]': {
@@ -493,6 +499,7 @@ configurations = {
     }),
     removeVerb : confFn({
         thisIsPurrl : true,
+        load : false,
         read : false
     }, function (key) {
         if (key === undefined) {
@@ -551,11 +558,7 @@ configurations = {
     }, function (path) {
         var module;
         try {
-            if (path.indexOf('.') === 0) {
-                module = require(fs.realpathSync(path));
-            } else {
-                module = require(path);
-            }
+            module = loadFromPath(path);
         } catch (e) {
             throw new Error('Could not load hooks from [ ' + path + ' ].');
         }
@@ -579,8 +582,7 @@ configurations = {
     }),
     removeHook : confFn({
         read : false
-    },
-    function (name, idx) {
+    }, function (name, idx) {
         var result;
         if (Object.prototype.toString.call(name) !== '[object String]') {
             throw new Error('The removeHook setting must be passed a hookName [ string ] and an index [ integer ]');
@@ -761,16 +763,16 @@ function createPurrl () {
         configurable : false,
         writable : false,
         value : {
-            path : [],
-            pathElement : {},
-            header : {},
-            requestHeader : {},
-            param : {},
-            requestParam : {},
             context : {
                 session  : {},
                 request : {}
             },
+            path : [],
+            requestHeader : {},
+            requestParam : {},
+            pathElement : {},
+            header : {},
+            param : {},
             hook : {
                 beforePath : [],
                 beforeRequest : [],
@@ -918,6 +920,21 @@ HookContext.prototype.getSessionContext = function () {
 
 HookContext.prototype.getRequestContext = function () {
     return this.context.request;
+};
+
+PURRL.loadConfig = function (purrl, path) {
+    var conf;
+    try {
+        conf = loadFromPath(path);
+    } catch (e) {
+        throw new Error('Could not load configuration from [ ' + path + ' ].');
+    }
+    purrl.config(Object.keys(conf).filter(function (key) {
+        return (!configurations.hasOwnProperty(key) || configurations[key].load);
+    }).reduce(function (toConf, key) {
+        toConf[key] = conf[key];
+        return toConf;
+    }, {}));
 };
 
 PURRL.hook = function (purrl, name, context) {

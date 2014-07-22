@@ -1365,6 +1365,220 @@ describe('PURRL', function () {
         });
     });
 
+    describe('static .loadConfig()', function () {
+        var purrl, fileName;
+        describe('when passed a path to a valid configuration file', function () {
+            before(function (done) {
+                fileName = './test-load-config-1.json';
+                Q.nfcall(fs.writeFile, fileName, JSON.stringify({
+                    protocol : 'https',
+                    host : 'example.com',
+                    port : 8443,
+                    param : {
+                        newParam : 'new'
+                    },
+                    removeParam : 'shouldRemain',
+                    header : {
+                        newHeader : 'new'
+                    },
+                    removeHeader : 'shouldRemain',
+                    pathElement :  {
+                        x : [1, {}, 3]
+                    },
+                    removePathElement : 'y',
+                    verb : {
+                        search : 'SEARCH'
+                    },
+                    removeVerb : 'get',
+                    loadHooks : './testHook.js',
+                    promise : 'q'
+                }))
+                .done(function () {
+                    purrl = new PURRL();
+                    purrl.config({
+                        param : {
+                            shouldRemain : 'value'
+                        },
+                        header : {
+                            shouldRemain : 'value'
+                        },
+                        pathElement :  {
+                            y : [9, 8, {p : 'id'}]
+                        },
+                        noPromise : true,
+                        hook : {
+                            beforeRequestBody : [],
+                            onBody : [],
+                            onRequest : [],
+                            onRequestError : [],
+                            onResponse : []
+                        }
+                    });
+                    PURRL.loadConfig(purrl, fileName);
+                    done();
+                });
+            });
+
+            after(function () {
+                Q.nfcall(fs.unlink, fileName)
+                .fail(function (reason) {
+                    console.log('Could not remove test generated file [ ' + fileName + ' ]:\n', reason);
+                });
+            });
+
+            it('should load the configuration from the JSON', function () {
+                expect(purrl.config()).to.deep.equal({
+                    protocol : 'https',
+                    promise : 'q',
+                    host : 'example.com',
+                    port : 8443,
+                    verb : {
+                        get : 'GET',
+                        post : 'POST',
+                        put : 'PUT',
+                        delete : 'DELETE',
+                        search : 'SEARCH'
+                    },
+                    param : {
+                        newParam : 'new',
+                        shouldRemain : 'value'
+                    },
+                    header : {
+                        newHeader : 'new',
+                        shouldRemain : 'value'
+                    },
+                    pathElement :  {
+                        x : [1, {}, 3],
+                        y : [9, 8, {p : 'id'}]
+                    },
+                    hook : {
+                        onBody : ['function () { return 1 + 1; }']
+                    }
+                });
+            });
+
+            it('should not use [ removeParam ] keys in JSON', function () {
+                expect(purrl.config('param', 'shouldRemain')).to.equal('value');
+            });
+
+            it('should not use [ removeHeader ] keys in JSON', function () {
+                expect(purrl.config('header', 'shouldRemain')).to.equal('value');
+            });
+
+            it('should not use [ removePathElement ] keys in JSON', function () {
+                expect(purrl.config('pathElement', 'y')).to.deep.equal([9, 8, {p : 'id'}]);
+            });
+
+            it('should not use [ removeVerb ] keys in JSON', function () {
+                expect(purrl.config('verb', 'get')).to.equal('GET');
+            });
+        });
+
+        describe('when passed a path to a valid configuration file where [ noPromise ] is set', function () {
+            before(function (done) {
+                fileName = './test-load-config-2.json';
+                Q.nfcall(fs.writeFile, fileName, JSON.stringify({
+                    noPromise : true
+                }))
+                .done(function () {
+                    purrl = new PURRL();
+                    PURRL.loadConfig(purrl, fileName);
+                    done();
+                });
+            });
+
+            after(function () {
+                Q.nfcall(fs.unlink, fileName)
+                .fail(function (reason) {
+                    console.log('Could not remove test generated file [ ' + fileName + ' ]:\n', reason);
+                });
+            });
+
+            it('should unset [ promise ]', function () {
+                expect(purrl.config('promise')).to.be.undefined;
+            });
+        });
+
+        describe('when passed an invalid path', function () {
+            it('should throw an error', function () {
+                expect(function () {
+                    PURRL.loadConfig(null, './does-not-exist.json');
+                }).to.throw(Error, 'Could not load configuration from [ ./does-not-exist.json ].');
+            });
+        });
+
+        describe('when loading configuration with an invalid option', function () {
+            var error;
+            before(function (done) {
+                fileName = './test-load-config-3.json';
+                Q.nfcall(fs.writeFile, fileName, JSON.stringify({
+                    badOption : true
+                }))
+                .done(function () {
+                    purrl = new PURRL();
+                    purrl.config({
+                        hook : {
+                            beforeRequestBody : [],
+                            onBody : [],
+                            onRequest : [],
+                            onRequestError : [],
+                            onResponse : []
+                        }
+                    });
+                    try {
+                        PURRL.loadConfig(purrl, fileName);
+                    } catch (e) {
+                        error = e;
+                    }
+                    done();
+                });
+            });
+
+            after(function () {
+                Q.nfcall(fs.unlink, fileName)
+                .fail(function (reason) {
+                    console.log('Could not remove test generated file [ ' + fileName + ' ]:\n', reason);
+                });
+            });
+
+            it('should throw an error', function () {
+                expect(error).to.be.instanceOf(Error);
+                expect(error.message).to.equal('The configuration option [ badOption ] is not supported.');
+            });
+        });
+
+        describe('when loading configuration with an option that needs more than 1 value', function () {
+            var error;
+            before(function (done) {
+                fileName = './test-load-config-4.json';
+                Q.nfcall(fs.writeFile, fileName, JSON.stringify({
+                    addHook : 'foo'
+                }))
+                .done(function () {
+                    try {
+                        PURRL.loadConfig(new PURRL(), fileName);
+                    } catch (e) {
+                        error = e;
+                    }
+                    done();
+                });
+            });
+
+            after(function () {
+                Q.nfcall(fs.unlink, fileName)
+                .fail(function (reason) {
+                    console.log('Could not remove test generated file [ ' + fileName + ' ]:\n', reason);
+                });
+            });
+
+            it('should throw an error', function () {
+                expect(error).to.be.instanceOf(Error);
+                expect(error.message)
+                .to.equal('The addHook setting must be passed a hookName [ string ], a value [ function ], and an optional index [ integer ]');
+            });
+        });
+    });
+
     describe('static .hook()', function () {
         var order, fakeHook1, fakeHook2;
         beforeEach(function () {
