@@ -13,7 +13,18 @@ global[' requestCallback'].callbackRequested = false;
 var repl = require('repl'),
 vm = require('vm'),
 PURRL = require('../index'),
+confFile = 'purrl.json',
+specified = false,
+minimist,
+argv,
+clients,
 session;
+
+try {
+    minimist = require('minimist');
+} catch (e) {
+    // Optional dependency
+}
 
 function purrlEval (code, context, file, callback) {
     var err, result;
@@ -39,6 +50,26 @@ function purrlEval (code, context, file, callback) {
     }
 }
 
+if (minimist) {
+    argv = minimist(process.argv.slice(2));
+    if (Object.prototype.toString.call(argv.c) === '[object Array]') {
+        argv.c = argv.c[0];
+    }
+    if (Object.prototype.toString.call(argv.conf) === '[object Array]') {
+        argv.conf = argv.conf[0];
+    }
+    if (Object.prototype.toString.call(argv.c) === '[object String]') {
+        confFile = argv.c;
+        specified = true;
+    }
+    if (Object.prototype.toString.call(argv.conf) === '[object String]') {
+        confFile = argv.conf;
+        specified = true;
+    }
+}
+
+clients = PURRL.createReplClients(confFile, specified);
+
 session = repl.start({
     prompt : 'purrl> ',
     ignoreUndefined : true,
@@ -47,5 +78,6 @@ session = repl.start({
 
 session.context.PURRL = function (config) { return new PURRL().config(PURRL.defaultReplConfig).config(config); };
 session.context.PURRL.loadConfig = PURRL.loadConfig;
-session.context.purrl = new PURRL(PURRL.defaultReplConfig);
-
+Object.keys(clients).forEach(function (client) {
+    session.context[client] = clients[client];
+});

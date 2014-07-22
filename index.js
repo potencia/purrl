@@ -226,10 +226,12 @@ function sendRequest (purrl, verb, body) {
         var allData;
         PURRL.hook(purrl, 'onResponse', {response : response});
         if (deferred && response.statusCode < 200 || response.statusCode > 299) {
-            deferred.reject({
-                code : response.statusCode,
-                description : require('http').STATUS_CODES[response.statusCode]
-            });
+            deferred.reject(PURRL.hook(purrl, 'onResponseError', {
+                error : {
+                    code : response.statusCode,
+                    description : require('http').STATUS_CODES[response.statusCode]
+                }
+            }).error);
         } else {
             allData = [];
         }
@@ -250,8 +252,11 @@ function sendRequest (purrl, verb, body) {
             }
         });
         response.on('error', function (error) {
-            if (allData && deferred) {
-                deferred.reject(error);
+            if (allData) {
+                var err = PURRL.hook(purrl, 'onResponseError', {error : error}).error;
+                if (deferred) {
+                    deferred.reject(err);
+                }
             }
         });
     });
@@ -780,6 +785,7 @@ function createPurrl () {
                 onRequestError : [],
                 beforeRequestBody : [],
                 onResponse : [],
+                onResponseError : [],
                 onData : [],
                 onBody : []
             },
@@ -822,8 +828,7 @@ function attachMethods (purrl) {
 }
 
 function configure (purrl, config) {
-    purrl
-    .config({
+    purrl.config({
         protocol : 'http',
         verb : {
             get : 'GET',
@@ -837,6 +842,13 @@ function configure (purrl, config) {
             },
             onRequestError : function (context) {
                 console.log(context.error);
+            },
+            onResponseError : function (context) {
+                if (context.error.code) {
+                    console.log(context.error.code + ': ' + context.error.description);
+                } else {
+                    console.log(context.error);
+                }
             },
             beforeRequestBody : function (context) {
                 var type = Object.prototype.toString.call(context.body);
@@ -852,9 +864,9 @@ function configure (purrl, config) {
             onBody : function (context) {
                 console.log(context.body);
             }
-        },
-        promise : 'q'
+        }
     });
+    purrl.config('promise', 'q', true); // Be quiet on failure
     if (config !== undefined) {
         purrl.config(config);
     }
@@ -865,20 +877,6 @@ PURRL = function (config) {
     attachMethods(purrl);
     configure(purrl, config);
     return purrl;
-};
-
-PURRL.defaultReplConfig = {
-    hook : {
-        beforeRequest : function (context) {
-            context.getRequestContext().replCallback = global[' requestCallback']();
-        },
-        onRequestError : function (context) {
-            context.getRequestContext().replCallback(context.error);
-        },
-        onBody : function (context) {
-            context.getRequestContext().replCallback(null, context.body);
-        }
-    }
 };
 
 function HookContext (purrl, context) {
@@ -922,21 +920,6 @@ HookContext.prototype.getRequestContext = function () {
     return this.context.request;
 };
 
-PURRL.loadConfig = function (purrl, path) {
-    var conf;
-    try {
-        conf = loadFromPath(path);
-    } catch (e) {
-        throw new Error('Could not load configuration from [ ' + path + ' ].');
-    }
-    purrl.config(Object.keys(conf).filter(function (key) {
-        return (!configurations.hasOwnProperty(key) || configurations[key].load);
-    }).reduce(function (toConf, key) {
-        toConf[key] = conf[key];
-        return toConf;
-    }, {}));
-};
-
 PURRL.hook = function (purrl, name, context) {
     var hookContext;
     checkHookName(purrl[I].hook, name);
@@ -947,6 +930,77 @@ PURRL.hook = function (purrl, name, context) {
         return !hookContext.cancelled;
     });
     return hookContext;
+};
+
+function loadFromUntrustedObject (purrl, config) {
+    purrl.config(Object.keys(config).filter(function (key) {
+        return (!configurations.hasOwnProperty(key) || configurations[key].load);
+    }).reduce(function (toConf, key) {
+        toConf[key] = config[key];
+        return toConf;
+    }, {}));
+}
+
+PURRL.loadConfig = function (purrl, path) {
+    var conf;
+    try {
+        conf = loadFromPath(path);
+    } catch (e) {
+        throw new Error('Could not load configuration from [ ' + path + ' ].');
+    }
+    loadFromUntrustedObject(purrl, conf);
+};
+
+function replBeforeRequest (context) {
+    context.getRequestContext().replCallback = global[' requestCallback']();
+}
+
+function replOnError (context) {
+    if (context.error.code) {
+        context.getRequestContext().replCallback(context.error.code + ': ' + context.error.description);
+    } else {
+        context.getRequestContext().replCallback(context.error);
+    }
+}
+
+function replOnBody (context) {
+    context.getRequestContext().replCallback(null, context.body);
+}
+
+PURRL.createReplClients = function (path, specified) {
+    var conf = {}, clients = {};
+
+    try {
+        conf = loadFromPath('./' + path);
+    } catch (e) {
+        if (specified || e.code !== 'ENOENT') {
+            throw e;
+        }
+    }
+
+    if (!conf.purrl) {
+        conf.purrl = {};
+    }
+
+    Object.keys(conf).forEach(function (client) {
+        clients[client] = new PURRL({
+            hook : {
+                onRequestError : [],
+                onResponseError : [],
+                onBody : []
+            }
+        });
+        loadFromUntrustedObject(clients[client], conf[client]);
+    });
+
+    Object.keys(clients).forEach(function (client) {
+        clients[client].config('addHook', 'beforeRequest', replBeforeRequest, 0);
+        clients[client].config('addHook', 'onRequestError', replOnError);
+        clients[client].config('addHook', 'onResponseError', replOnError);
+        clients[client].config('addHook', 'onBody', replOnBody);
+    });
+
+    return clients;
 };
 
 module.exports = PURRL;

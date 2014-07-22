@@ -103,6 +103,60 @@ a promise or `undefined` depending on the configuration. The `_` variable would 
 
 ----------------------------------------------------------------------
 
+### Configuration Files ###
+
+Upon starting the REPL, if a valid configuration JSON file is provided, that file will set the configuration of multiple clients automatically. By default,
+PURRL searches for the `purrl.json` file in the current working directory. If the optional minimist dependency is installed, the then configuration file can be
+specified using the `-c` or `--conf` command line switches. Following is a configuration file that will prepare the same Trello client from above.
+
+purrl.json
+
+    {
+        "trello" : {
+            "protocol" : "https",
+            "host" : "trello.com",
+            "param" : {
+                "key" : "{{{ YOUR APPLICATION KEY }}}",
+                "token" : "{{{ YOUR USER OAUTH TOKEN }}}"
+            },
+            "pathElement" : {
+                "me" : ["members", "me"],
+                "board" : ["boards", {}]
+            },
+            "loadHooks" : "./trelloHooks.js"
+        }
+    }
+
+trelloHooks.js
+
+    exports.beforePath = function (context) {
+        context.path.unshift(1);
+    };
+
+From the command line:
+
+    $ purrl
+
+    purrl> trello.me.get();
+    purrl> var meJson = JSON.parse(_);
+    purrl> trello.board(meJson.idBoards[0]).get();
+    purrl> var myFirstBoardJson = JSON.parse(_);
+    purrl> console.log(myFirstBoardJson);
+
+If the JSON configuration file is named `trello.json` instead of `purrl.json` and the optional minimist dependency is installed, then the following would work
+
+    $ purrl --conf=trello.json
+
+    purrl> trello.me.get();
+    purrl> var meJson = JSON.parse(_);
+    purrl> trello.board(meJson.idBoards[0]).get();
+    purrl> var myFirstBoardJson = JSON.parse(_);
+    purrl> console.log(myFirstBoardJson);
+
+If minimist is not available, then the the command line switches will have no effect, but the `purrl.json` file will still be used if present.
+
+----------------------------------------------------------------------
+
 ### Detailed Documentation ###
 
 #### Constructor ####
@@ -1027,6 +1081,14 @@ Special Context Data:
 
 `response` : The response object passed to the request's `response` event callback.
 
+##### onResponseError #####
+
+Called when the response emits an `error` event or when the `promise` option is set and the the response has a non-success code.
+
+Special Context Data:
+
+`error` : The error from the `error` event or an object with the status code and description when fired on a non-success response code.
+
 ##### onData #####
 
 Called each time the response emits a `data` event. If `hookContext.cancel()` is called, the data will not be included in the response body.
@@ -1066,6 +1128,7 @@ Special Context Data:
   <tr><td><b>onRequest</b></td><td><code>request</code></td><td></td><td>2</td></tr>
   <tr><td><b>beforeRequestBody</b></td><td><code>body</code></td><td>true</td><td>3</td></tr>
   <tr><td><b>onResponse</b></td><td><code>response</code></td><td></td><td>4</td></tr>
+  <tr><td><b>onResponseError</b></td><td><code>error</code></td><td></td><td>N/A</td></tr>
   <tr><td><b>onData</b></td><td><code>data</code></td><td>true</td><td>5</td></tr>
   <tr><td><b>onBody</b></td><td><code>body</code></td><td></td><td>6</td></tr>
   <tr><td><b>onRequestError</b></td><td><code>error</code></td><td></td><td>N/A</td></tr>

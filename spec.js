@@ -71,6 +71,7 @@ describe('PURRL', function () {
         beforeEach(function () {
             purrl.config('hook', 'onRequestError', []);
             purrl.config('hook', 'onRequest', []);
+            purrl.config('hook', 'onResponseError', []);
             purrl.config('hook', 'beforeRequestBody', []);
             purrl.config('hook', 'onResponse', []);
             purrl.config('hook', 'onBody', []);
@@ -1394,8 +1395,7 @@ describe('PURRL', function () {
                     promise : 'q'
                 }))
                 .done(function () {
-                    purrl = new PURRL();
-                    purrl.config({
+                    purrl = new PURRL({
                         param : {
                             shouldRemain : 'value'
                         },
@@ -1411,7 +1411,8 @@ describe('PURRL', function () {
                             onBody : [],
                             onRequest : [],
                             onRequestError : [],
-                            onResponse : []
+                            onResponse : [],
+                            onResponseError : []
                         }
                     });
                     PURRL.loadConfig(purrl, fileName);
@@ -2087,11 +2088,12 @@ describe('PURRL', function () {
         });
 
         describe('when the [ response ] event is triggered with a 2xx code with [ promise ] set', function () {
-            var responseObject, onResponse, onData, onBody, deferred;
+            var responseObject, onResponse, onResponseError, onData, onBody, deferred;
             function Promise () {}
             beforeEach(function () {
                 var ctr, len;
                 onResponse = sinon.stub();
+                onResponseError = sinon.stub();
                 onData = sinon.stub();
                 onBody = sinon.stub();
                 deferred = Q.defer();
@@ -2099,6 +2101,7 @@ describe('PURRL', function () {
                 purrl.config({
                     hook : {
                         onResponse : onResponse,
+                        onResponseError : onResponseError,
                         onData : onData,
                         onBody : onBody
                     },
@@ -2228,19 +2231,26 @@ describe('PURRL', function () {
                     }).done(done);
                     sendError('Arrgh!');
                 });
+
+                it('should call the onResponseError hook when `error` is emitted', function () {
+                    sendError('error');
+                    expect(onResponseError.callCount).to.equal(1);
+                });
             });
         });
 
         describe('when the [ response ] event is triggered with a non 200 code with [ promise ] set', function () {
-            var responseObject, onResponse, onData, onBody, promise;
+            var responseObject, onResponse, onResponseError, onData, onBody, promise;
             beforeEach(function () {
                 var ctr, len;
                 onResponse = sinon.stub();
+                onResponseError = sinon.stub();
                 onData = sinon.stub();
                 onBody = sinon.stub();
                 promise = purrl.config({
                     hook : {
                         onResponse : onResponse,
+                        onResponseError : onResponseError,
                         onData : onData,
                         onBody : onBody
                     }
@@ -2260,6 +2270,12 @@ describe('PURRL', function () {
             it('should call the [ onResponse ] hook', function () {
                 expect(onResponse.callCount).to.equal(1);
                 expect(onResponse.firstCall.args[0].response).to.equal(responseObject);
+            });
+
+            it('should call the [ onResponseError ] hook', function () {
+                expect(onResponseError.callCount).to.equal(1);
+                expect(onResponseError.firstCall.args[0].error.code).to.equal(404);
+                expect(onResponseError.firstCall.args[0].error.description).to.equal('Not Found');
             });
 
             it('should register a listener for the [ data ] event on the response object.', function () {
@@ -2300,6 +2316,11 @@ describe('PURRL', function () {
                     expect(onBody.callCount).to.equal(0);
                 });
 
+                it('should call the onResponseError hook when `error` is emitted', function () {
+                    sendError('error');
+                    expect(onResponseError.callCount).to.equal(1);
+                });
+
                 it('should reject the promise with the code and a description', function (done) {
                     promise
                     .fail(function (reason) {
@@ -2312,17 +2333,19 @@ describe('PURRL', function () {
         });
 
         describe('when the [ response ] event is triggered with [ promise ] unset', function () {
-            var responseObject, onResponse, onData, onBody;
+            var responseObject, onResponse, onData, onBody, onResponseError;
             beforeEach(function () {
                 var ctr, len;
                 onResponse = sinon.stub();
                 onData = sinon.stub();
                 onBody = sinon.stub();
+                onResponseError = sinon.stub();
                 purrl.config({
                     hook : {
                         onResponse : onResponse,
                         onData : onData,
-                        onBody : onBody
+                        onBody : onBody,
+                        onResponseError : onResponseError
                     },
                     noPromise : true
                 }).get();
@@ -2417,8 +2440,10 @@ describe('PURRL', function () {
                     expect(onBody.firstCall.args[0].body).to.equal('first third');
                 });
 
-                it('should do nothing when `error` is emitted', function () {
+                it('should call the onResponseError hook when `error` is emitted', function () {
                     sendError('error');
+                    expect(onResponseError.callCount).to.equal(1);
+                    expect(onResponseError.firstCall.args[0].error).to.equal('error');
                 });
             });
         });
@@ -2613,6 +2638,18 @@ describe('PURRL', function () {
             expect(console.log.callCount).to.equal(1);
             expect(console.log.firstCall.args).to.deep.equal(['Something bad happened.']);
         });
+
+        it('should output the non 200 response from the call to the console', function () {
+            purrl[' internal'].hook.onResponseError[0].call(null, {error : {code : 404, description : 'Not Found'}});
+            expect(console.log.callCount).to.equal(1);
+            expect(console.log.firstCall.args).to.deep.equal(['404: Not Found']);
+        });
+
+        it('should output the response error from the call to the console', function () {
+            purrl[' internal'].hook.onResponseError[0].call(null, {error : 'Something bad happened.'});
+            expect(console.log.callCount).to.equal(1);
+            expect(console.log.firstCall.args).to.deep.equal(['Something bad happened.']);
+        });
     });
 
     describe('in the REPL', function () {
@@ -2624,7 +2661,8 @@ describe('PURRL', function () {
             contextObj = {
                 getRequestContext : sinon.stub().returns(requestContext)
             };
-            purrl = new PURRL(PURRL.defaultReplConfig);
+            // Get the default purrl client
+            purrl = PURRL.createReplClients('./does-not-exist.json', false).purrl;
         });
 
         it('should put the replCallback in the request context beforeRequest', function () {
@@ -2654,6 +2692,119 @@ describe('PURRL', function () {
             expect(contextObj.getRequestContext.callCount).to.equal(1);
             expect(requestContext.replCallback.callCount).to.equal(1);
             expect(requestContext.replCallback.firstCall.args).to.deep.equal(['Something bad happened.']);
+        });
+
+        it('should call the REPL callback with the response error from the call', function () {
+            contextObj.error = 'Something bad happened.';
+            purrl[' internal'].hook.onResponseError[0].call(null, contextObj);
+            expect(contextObj.getRequestContext.callCount).to.equal(1);
+            expect(requestContext.replCallback.callCount).to.equal(1);
+            expect(requestContext.replCallback.firstCall.args).to.deep.equal(['Something bad happened.']);
+        });
+
+        it('should call the REPL callback with the non 200 response from the call', function () {
+            contextObj.error = {code : 404, description : 'Not Found'};
+            purrl[' internal'].hook.onResponseError[0].call(null, contextObj);
+            expect(contextObj.getRequestContext.callCount).to.equal(1);
+            expect(requestContext.replCallback.callCount).to.equal(1);
+            expect(requestContext.replCallback.firstCall.args).to.deep.equal(['404: Not Found']);
+        });
+
+        describe('with bad REPL config', function () {
+            var purrl, fileName;
+            before(function (done) {
+                fileName = './test-repl-config-1.json';
+                Q.nfcall(fs.writeFile, fileName, JSON.stringify({
+                    cl1 : {},
+                    cl2 : {
+                        badOption : 'not good'
+                    }
+                }))
+                .done(function () {
+                    done();
+                });
+            });
+
+            after(function () {
+                Q.nfcall(fs.unlink, fileName)
+                .fail(function (reason) {
+                    console.log('Could not remove test generated file [ ' + fileName + ' ]:\n', reason);
+                });
+            });
+
+            it('should throw an error', function () {
+                expect(function () {
+                    purrl = PURRL.createReplClients(fileName);
+                }).to.throw(Error, 'The configuration option [ badOption ] is not supported.');
+            });
+        });
+
+        describe('with bad REPL JSON', function () {
+            var fileName;
+            before(function (done) {
+                fileName = './test-repl-config-2.json';
+                Q.nfcall(fs.writeFile, fileName, '{badjson:true}')
+                .done(function () {
+                    done();
+                });
+            });
+
+            after(function () {
+                Q.nfcall(fs.unlink, fileName)
+                .fail(function (reason) {
+                    console.log('Could not remove test generated file [ ' + fileName + ' ]:\n', reason);
+                });
+            });
+
+            it('should throw an error', function () {
+                expect(function () {
+                    PURRL.createReplClients(fileName);
+                }).to.throw(Error);
+            });
+        });
+
+        describe('with good REPL JSON', function () {
+            var fileName, clients;
+            before(function (done) {
+                fileName = './test-repl-config-3.json';
+                Q.nfcall(fs.writeFile, fileName, JSON.stringify({
+                    purrl : {
+                        host : 'example.com'
+                    },
+                    cli1 : {
+                        host : 'localhost',
+                        port : 8080
+                    },
+                    cli2 : {
+                        protocol : 'https',
+                        host : 'localhost',
+                        port : 8443
+                    }
+                }))
+                .done(function () {
+                    clients = PURRL.createReplClients(fileName);
+                    done();
+                });
+            });
+
+            after(function () {
+                Q.nfcall(fs.unlink, fileName)
+                .fail(function (reason) {
+                    console.log('Could not remove test generated file [ ' + fileName + ' ]:\n', reason);
+                });
+            });
+
+            it('should create multiple clients', function () {
+                expect(clients).to.have.property('purrl');
+                expect(clients).to.have.property('cli1');
+                expect(clients).to.have.property('cli2');
+            });
+
+            it('should configure each according to it\'s individual configuration', function () {
+                expect(clients.purrl.toUrl()).to.equal('http://example.com');
+                expect(clients.cli1.toUrl()).to.equal('http://localhost:8080');
+                expect(clients.cli2.toUrl()).to.equal('https://localhost:8443');
+            });
         });
     });
 });
