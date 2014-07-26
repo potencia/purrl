@@ -76,7 +76,12 @@ session = repl.start({
     eval : purrlEval
 });
 
-session.context.PURRL = function (config) { return new PURRL().config(PURRL.defaultReplConfig).config(config); };
+session.context.PURRL = function me (config) {
+    var purrl = me.createClient().purrl;
+    purrl.config(config);
+    return purrl;
+};
+session.context.PURRL.createClient = PURRL.createReplClients.bind(null, '', false);
 session.context.PURRL.loadConfig = PURRL.loadConfig;
 Object.keys(clients).forEach(function (client) {
     session.context[client] = clients[client];
