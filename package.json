@@ -1,13 +1,13 @@
 {
-    "name": "purrl",
-    "version": "1.0.1",
-    "description": "Pretty Useful Resource Request Lackey",
-    "author": "John Johnson II",
-    "license": {
+    "name" : "purrl",
+    "version" : "1.0.2",
+    "description" : "Pretty Useful Resource Request Lackey",
+    "author" : "John Johnson II",
+    "license" : {
         "type" : "MIT",
         "url" : "https://github.com/potencia/purrl/raw/master/LICENSE"
     },
-    "keywords": [ "rest", "client", "curl" ],
+    "keywords" : ["rest", "client", "curl", "repl"],
     "homepage" : "https://github.com/potencia/purrl",
     "bugs" : {
         "url" : "https://github.com/potencia/purrl/issues"
@@ -17,12 +17,15 @@
         "url" : "https://github.com/potencia/purrl.git"
     },
     "files" : ["README.md", "LICENSE", "bin/purrl.js", "index.js"],
-    "main": "index.js",
+    "main" : "index.js",
     "bin" : {
         "purrl" : "./bin/purrl.js"
     },
-    "scripts": {
-        "test": "gulp test"
+    "scripts" : {
+        "test" : "gulp test"
+    },
+    "dependencies" : {
+        "otaat-repl" : "^1.0.0"
     },
     "optionalDependencies" : {
         "minimist" : "^0.2.0",

@@ -223,40 +223,38 @@ function sendRequest (purrl, verb, body) {
     PURRL.hook(purrl, 'onRequest', {request : request});
 
     request.on('response', function (response) {
-        var allData;
+        var allData = [], error;
         PURRL.hook(purrl, 'onResponse', {response : response});
-        if (deferred && response.statusCode < 200 || response.statusCode > 299) {
-            deferred.reject(PURRL.hook(purrl, 'onResponseError', {
-                error : {
-                    code : response.statusCode,
-                    description : require('http').STATUS_CODES[response.statusCode]
-                }
-            }).error);
-        } else {
-            allData = [];
+        if (response.statusCode < 200 || response.statusCode > 299) {
+            error = new Error('Non-success HTTP code');
+            error.code = response.statusCode;
+            error.description = require('http').STATUS_CODES[response.statusCode];
         }
+
         response.on('data', function (data) {
-            if (allData) {
-                var onDataHook = PURRL.hook(purrl, 'onData', {data : data});
-                if (!onDataHook.cancelled) {
-                    allData.push(onDataHook.data);
-                }
+            var onDataHook = PURRL.hook(purrl, 'onData', {data : data});
+            if (!onDataHook.cancelled) {
+                allData.push(onDataHook.data);
             }
         });
         response.on('end', function () {
-            if (allData) {
-                var body = PURRL.hook(purrl, 'onBody', {body : allData.join('')}).body;
-                if (deferred) {
+            var body = PURRL.hook(purrl, 'onBody', {body : allData.join('')}).body;
+            if (error) {
+                error.message = error.message + (body.length ? ' [ ' + error.code + ' ]: ' + body : '');
+                error.body = body;
+            }
+            if (deferred) {
+                if (error) {
+                    deferred.reject(error);
+                } else {
                     deferred.resolve(body);
                 }
             }
         });
         response.on('error', function (error) {
-            if (allData) {
-                var err = PURRL.hook(purrl, 'onResponseError', {error : error}).error;
-                if (deferred) {
-                    deferred.reject(err);
-                }
+            var err = PURRL.hook(purrl, 'onResponseError', {error : error}).error;
+            if (deferred) {
+                deferred.reject(err);
             }
         });
     });
@@ -956,11 +954,7 @@ function replBeforeRequest (context) {
 }
 
 function replOnError (context) {
-    if (context.error.code) {
-        context.getRequestContext().replCallback(context.error.code + ': ' + context.error.description);
-    } else {
-        context.getRequestContext().replCallback(context.error);
-    }
+    context.getRequestContext().replCallback(context.error);
 }
 
 function replOnBody (context) {
@@ -969,6 +963,13 @@ function replOnBody (context) {
 
 PURRL.createReplClients = function (path, specified) {
     var conf = {}, clients = {};
+
+    Object.defineProperty(clients, 'allPromise', {
+        configurable : true,
+        enumerable : false,
+        writable : true,
+        value : true
+    });
 
     try {
         conf = loadFromPath('./' + path);
@@ -991,13 +992,18 @@ PURRL.createReplClients = function (path, specified) {
             }
         });
         loadFromUntrustedObject(clients[client], conf[client]);
+        if (clients[client].config('promise') === undefined) {
+            clients.allPromise = false;
+        }
     });
 
     Object.keys(clients).forEach(function (client) {
-        clients[client].config('addHook', 'beforeRequest', replBeforeRequest, 0);
-        clients[client].config('addHook', 'onRequestError', replOnError);
-        clients[client].config('addHook', 'onResponseError', replOnError);
-        clients[client].config('addHook', 'onBody', replOnBody);
+        if (clients[client].config('promise') === undefined) {
+            clients[client].config('addHook', 'beforeRequest', replBeforeRequest, 0);
+            clients[client].config('addHook', 'onRequestError', replOnError);
+            clients[client].config('addHook', 'onResponseError', replOnError);
+            clients[client].config('addHook', 'onBody', replOnBody);
+        }
     });
 
     return clients;

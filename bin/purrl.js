@@ -10,44 +10,21 @@ global[' requestCallback'] = function me () {
 };
 global[' requestCallback'].callbackRequested = false;
 
-var repl = require('repl'),
-vm = require('vm'),
+var OTaaTRepl = require('otaat-repl'),
 PURRL = require('../index'),
 confFile = 'purrl.json',
 specified = false,
-minimist,
-argv,
-clients,
-session;
+options, minimist, argv, clients, session, repl, vm;
+
+options = {
+    prompt : 'purrl> ',
+    ignoreUndefined : true
+};
 
 try {
     minimist = require('minimist');
 } catch (e) {
     // Optional dependency
-}
-
-function purrlEval (code, context, file, callback) {
-    var err, result;
-
-    function onRequest() {
-        return callback;
-    }
-    global[' requestCallback'].onRequest = onRequest;
-
-    try {
-        result = vm.runInContext(code, context, file);
-    } catch (e) {
-        err = e;
-    }
-    if (err && process.domain) {
-        process.domain.emit('error', err);
-        process.domain.exit();
-    }
-    else {
-        if (!global[' requestCallback'].callbackRequested) {
-            callback(err, result);
-        }
-    }
 }
 
 if (minimist) {
@@ -70,11 +47,36 @@ if (minimist) {
 
 clients = PURRL.createReplClients(confFile, specified);
 
-session = repl.start({
-    prompt : 'purrl> ',
-    ignoreUndefined : true,
-    eval : purrlEval
-});
+if (clients.allPromise) {
+    session = OTaaTRepl.start(options);
+} else {
+    repl = require('repl');
+    vm = require('vm');
+    options.eval = function (code, context, file, callback) {
+        var err, result;
+
+        function onRequest() {
+            return callback;
+        }
+        global[' requestCallback'].onRequest = onRequest;
+
+        try {
+            result = vm.runInContext(code, context, file);
+        } catch (e) {
+            err = e;
+        }
+        if (err && process.domain) {
+            process.domain.emit('error', err);
+            process.domain.exit();
+        }
+        else {
+            if (!global[' requestCallback'].callbackRequested) {
+                callback(err, result);
+            }
+        }
+    };
+    session = repl.start(options);
+}
 
 session.context.PURRL = function me (config) {
     var purrl = me.createClient().purrl;

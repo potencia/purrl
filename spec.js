@@ -2272,12 +2272,6 @@ describe('PURRL', function () {
                 expect(onResponse.firstCall.args[0].response).to.equal(responseObject);
             });
 
-            it('should call the [ onResponseError ] hook', function () {
-                expect(onResponseError.callCount).to.equal(1);
-                expect(onResponseError.firstCall.args[0].error.code).to.equal(404);
-                expect(onResponseError.firstCall.args[0].error.description).to.equal('Not Found');
-            });
-
             it('should register a listener for the [ data ] event on the response object.', function () {
                 expect(responseObject.on.calledWith('data')).to.be.true;
             });
@@ -2307,13 +2301,13 @@ describe('PURRL', function () {
                     }
                 });
 
-                it('should not call the [ onData ] or [ onBody ] hooks', function () {
+                it('should call the [ onData ] or [ onBody ] hooks', function () {
                     sendData('first');
                     sendData(' second');
                     sendData(' third');
                     sendEnd();
-                    expect(onData.callCount).to.equal(0);
-                    expect(onBody.callCount).to.equal(0);
+                    expect(onData.callCount).to.equal(3);
+                    expect(onBody.callCount).to.equal(1);
                 });
 
                 it('should call the onResponseError hook when `error` is emitted', function () {
@@ -2326,8 +2320,24 @@ describe('PURRL', function () {
                     .fail(function (reason) {
                         expect(reason.code).to.equal(404);
                         expect(reason.description).to.equal('Not Found');
+                        expect(reason.body).to.equal('Not There');
+                        expect(reason.message).to.equal('Non-success HTTP code [ 404 ]: Not There');
                     })
                     .done(done);
+                    sendData('Not There');
+                    sendEnd();
+                });
+
+                it('should reject the promise with the code and a description', function (done) {
+                    promise
+                    .fail(function (reason) {
+                        expect(reason.code).to.equal(404);
+                        expect(reason.description).to.equal('Not Found');
+                        expect(reason.body).to.equal('');
+                        expect(reason.message).to.equal('Non-success HTTP code');
+                    })
+                    .done(done);
+                    sendEnd();
                 });
             });
         });
@@ -2653,7 +2663,7 @@ describe('PURRL', function () {
     });
 
     describe('in the REPL', function () {
-        var contextObj, requestContext;
+        var fileName, clients, contextObj, requestContext;
         beforeEach(function () {
             requestContext = {
                 replCallback : sinon.stub()
@@ -2662,52 +2672,115 @@ describe('PURRL', function () {
                 getRequestContext : sinon.stub().returns(requestContext)
             };
             // Get the default purrl client
-            purrl = PURRL.createReplClients('./does-not-exist.json', false).purrl;
+            clients = PURRL.createReplClients('./does-not-exist.json', false);
+            purrl = clients.purrl;
         });
 
-        it('should put the replCallback in the request context beforeRequest', function () {
-            var temp = requestContext.replCallback;
-            global[' requestCallback'] = sinon.stub().returns(temp);
-            delete requestContext.replCallback;
-            try {
-                purrl[' internal'].hook.beforeRequest[0].call(null, contextObj);
+        describe('when a client does not initialize a promise library', function () {
+            before(function (done) {
+                fileName = './test-repl-config-4.json';
+                Q.nfcall(fs.writeFile, fileName, JSON.stringify({
+                    purrl : {
+                        host : 'example.com',
+                        noPromise : 'true'
+                    }
+                })).done(done);
+            });
+
+            beforeEach(function () {
+                clients = PURRL.createReplClients(fileName);
+                purrl = clients.purrl;
+            });
+
+            after(function () {
+                Q.nfcall(fs.unlink, fileName)
+                .fail(function (reason) {
+                    console.log('Could not remove test generated file [ ' + fileName + ' ]:\n', reason);
+                });
+            });
+
+            it('should set [ clients.allPromise ] to false', function () {
+                expect(Object.keys(clients)).to.not.include('allPromise');
+                expect(clients.allPromise).to.be.false;
+            });
+
+            it('should put the replCallback in the request context beforeRequest', function () {
+                var temp = requestContext.replCallback;
+                global[' requestCallback'] = sinon.stub().returns(temp);
+                delete requestContext.replCallback;
+                try {
+                    PURRL.hook(purrl, 'beforeRequest', contextObj);
+                    expect(contextObj.getRequestContext.callCount).to.equal(1);
+                    expect(requestContext.replCallback).to.equal(temp);
+                } finally {
+                    delete global[' requestCallback'];
+                }
+            });
+
+            it('should call the REPL callback with the results from the call', function () {
+                contextObj.body = 'The whole enchilada.';
+                PURRL.hook(purrl, 'onBody', contextObj);
                 expect(contextObj.getRequestContext.callCount).to.equal(1);
-                expect(requestContext.replCallback).to.equal(temp);
-            } finally {
-                delete global[' requestCallback'];
-            }
+                expect(requestContext.replCallback.callCount).to.equal(1);
+                expect(requestContext.replCallback.firstCall.args).to.deep.equal([null, 'The whole enchilada.']);
+            });
+
+            it('should call the REPL callback with the error from the call', function () {
+                contextObj.error = 'Something bad happened.';
+                PURRL.hook(purrl, 'onRequestError', contextObj);
+                expect(contextObj.getRequestContext.callCount).to.equal(1);
+                expect(requestContext.replCallback.callCount).to.equal(1);
+                expect(requestContext.replCallback.firstCall.args).to.deep.equal(['Something bad happened.']);
+            });
+
+            it('should call the REPL callback with the response error from the call', function () {
+                contextObj.error = 'Something bad happened.';
+                PURRL.hook(purrl, 'onResponseError', contextObj);
+                expect(contextObj.getRequestContext.callCount).to.equal(1);
+                expect(requestContext.replCallback.callCount).to.equal(1);
+                expect(requestContext.replCallback.firstCall.args).to.deep.equal(['Something bad happened.']);
+            });
         });
 
-        it('should call the REPL callback with the results from the call', function () {
-            contextObj.body = 'The whole enchilada.';
-            purrl[' internal'].hook.onBody[0].call(null, contextObj);
-            expect(contextObj.getRequestContext.callCount).to.equal(1);
-            expect(requestContext.replCallback.callCount).to.equal(1);
-            expect(requestContext.replCallback.firstCall.args).to.deep.equal([null, 'The whole enchilada.']);
-        });
+        describe('when all clients initialize promises', function () {
+            it('should NOT put the replCallback in the request context beforeRequest', function () {
+                var temp = requestContext.replCallback;
+                global[' requestCallback'] = sinon.stub().returns(temp);
+                delete requestContext.replCallback;
+                try {
+                    PURRL.hook(purrl, 'beforeRequest', contextObj);
+                    expect(contextObj.getRequestContext.callCount).to.equal(0);
+                    expect(requestContext.replCallback).to.be.undefined;
+                } finally {
+                    delete global[' requestCallback'];
+                }
+            });
 
-        it('should call the REPL callback with the error from the call', function () {
-            contextObj.error = 'Something bad happened.';
-            purrl[' internal'].hook.onRequestError[0].call(null, contextObj);
-            expect(contextObj.getRequestContext.callCount).to.equal(1);
-            expect(requestContext.replCallback.callCount).to.equal(1);
-            expect(requestContext.replCallback.firstCall.args).to.deep.equal(['Something bad happened.']);
-        });
+            it('should set [ clients.allPromise ] to true', function () {
+                expect(Object.keys(clients)).to.not.include('allPromise');
+                expect(clients.allPromise).to.be.true;
+            });
 
-        it('should call the REPL callback with the response error from the call', function () {
-            contextObj.error = 'Something bad happened.';
-            purrl[' internal'].hook.onResponseError[0].call(null, contextObj);
-            expect(contextObj.getRequestContext.callCount).to.equal(1);
-            expect(requestContext.replCallback.callCount).to.equal(1);
-            expect(requestContext.replCallback.firstCall.args).to.deep.equal(['Something bad happened.']);
-        });
+            it('should NOT call the REPL callback with the results from the call', function () {
+                contextObj.body = 'The whole enchilada.';
+                PURRL.hook(purrl, 'onBody', contextObj);
+                expect(contextObj.getRequestContext.callCount).to.equal(0);
+                expect(requestContext.replCallback.callCount).to.equal(0);
+            });
 
-        it('should call the REPL callback with the non 200 response from the call', function () {
-            contextObj.error = {code : 404, description : 'Not Found'};
-            purrl[' internal'].hook.onResponseError[0].call(null, contextObj);
-            expect(contextObj.getRequestContext.callCount).to.equal(1);
-            expect(requestContext.replCallback.callCount).to.equal(1);
-            expect(requestContext.replCallback.firstCall.args).to.deep.equal(['404: Not Found']);
+            it('should NOT call the REPL callback with the error from the call', function () {
+                contextObj.error = 'Something bad happened.';
+                PURRL.hook(purrl, 'onRequestError', contextObj);
+                expect(contextObj.getRequestContext.callCount).to.equal(0);
+                expect(requestContext.replCallback.callCount).to.equal(0);
+            });
+
+            it('should NOT call the REPL callback with the response error from the call', function () {
+                contextObj.error = 'Something bad happened.';
+                PURRL.hook(purrl, 'onResponseError', contextObj);
+                expect(contextObj.getRequestContext.callCount).to.equal(0);
+                expect(requestContext.replCallback.callCount).to.equal(0);
+            });
         });
 
         describe('with bad REPL config', function () {
