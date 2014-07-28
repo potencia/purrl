@@ -1,6 +1,6 @@
 {
     "name" : "purrl",
-    "version" : "1.0.2",
+    "version" : "1.0.3",
     "description" : "Pretty Useful Resource Request Lackey",
     "author" : "John Johnson II",
     "license" : {
@@ -25,7 +25,7 @@
         "test" : "gulp test"
     },
     "dependencies" : {
-        "otaat-repl" : "^1.0.0"
+        "otaat-repl" : "^1.0.1"
     },
     "optionalDependencies" : {
         "minimist" : "^0.2.0",
@@ -33,15 +33,15 @@
     },
     "devDependencies" : {
         "chai" : "^1.9.1",
-        "gulp" : "^3.6.2",
-        "gulp-istanbul" : "^0.2.0",
-        "gulp-jscs" : "^0.5.0",
-        "gulp-jshint" : "^1.6.1",
-        "gulp-mocha" : "^0.4.1",
+        "gulp" : "^3.8.6",
+        "gulp-istanbul" : "^0.2.1",
+        "gulp-jscs" : "^1.0.0",
+        "gulp-jshint" : "^1.8.0",
+        "gulp-mocha" : "^0.5.2",
         "gulp-sip" : "^0.1.0",
-        "gulp-util" : "^2.2.14",
-        "jshint-stylish" : "^0.2.0",
+        "gulp-util" : "^3.0.0",
+        "jshint-stylish" : "^0.4.0",
         "run-sequence" : "^0.3.6",
-        "sinon" : "^1.10.0"
+        "sinon" : "^1.10.3"
     }
 }
